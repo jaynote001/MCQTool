@@ -2,6 +2,7 @@
 import { shuffle, readJSONFile, downloadJSON, formatPercent, formatTime, generateTimestamp, formatDate, escapeHtml } from './utils.js';
 import { parseAndValidate, validateAttemptFile, filterForCorrective } from './fileParser.js';
 import { computeAnalysisReport, computeLongitudinalTrends, getReviewProblems, getReinforcementQueue, CONFIDENCE_LEVELS } from './analysisEngine.js';
+import { SAMPLE_PROBLEM_SET, SAMPLE_PROBLEM_SETS, SAMPLE_ATTEMPT } from './sampleData.js';
 
 class MCQApp {
     constructor() {
@@ -75,18 +76,72 @@ class MCQApp {
                 <div class="file-upload-area" id="upload-area">
                     <input type="file" id="file-input" accept=".json">
                     <span class="upload-label">
-                        <strong>Click to upload</strong> or drag & drop a Problem Set JSON file
+                        <strong>Click to upload</strong> or drag &amp; drop a Problem Set JSON file
                     </span>
                 </div>
                 <div id="upload-error"></div>
                 <div id="set-list-container"></div>
             </div>
+
             <div class="card">
-                <h2>Or: Longitudinal Analysis</h2>
-                <p style="color:var(--text-muted);margin-bottom:0.75rem;">Upload multiple Attempt files to view performance trends.</p>
+                <h2>Longitudinal Analysis</h2>
+                <p style="color:var(--text-muted);margin-bottom:0.75rem;">Upload multiple Attempt files to view performance trends over time.</p>
                 <button class="btn btn-outline" id="btn-longitudinal">Open Longitudinal Analysis</button>
             </div>
+
+            <div class="card">
+                <details class="sample-files-details">
+                    <summary class="sample-files-summary">
+                        <span class="sample-files-title">Sample Files</span>
+                        <span class="sample-files-hint">View or download sample JSON files to get started</span>
+                    </summary>
+                    <div class="sample-files-grid">
+
+                        <div class="sample-file-card">
+                            <div class="sample-file-icon">&#128196;</div>
+                            <div class="sample-file-info">
+                                <div class="sample-file-name">Sample_Problem_Set.json</div>
+                                <div class="sample-file-desc">Single problem set &mdash; Data Visualization (2 problems)</div>
+                            </div>
+                            <div class="sample-file-actions">
+                                <button class="btn btn-outline btn-sm" data-view="single">View</button>
+                                <button class="btn btn-outline btn-sm" data-dl="single">Download</button>
+                            </div>
+                        </div>
+                        <pre class="sample-json-preview" id="preview-single" hidden></pre>
+
+                        <div class="sample-file-card">
+                            <div class="sample-file-icon">&#128196;</div>
+                            <div class="sample-file-info">
+                                <div class="sample-file-name">Sample_Problem_Sets.json</div>
+                                <div class="sample-file-desc">Multi-set array format &mdash; demonstrates multi-set loading</div>
+                            </div>
+                            <div class="sample-file-actions">
+                                <button class="btn btn-outline btn-sm" data-view="multi">View</button>
+                                <button class="btn btn-outline btn-sm" data-dl="multi">Download</button>
+                            </div>
+                        </div>
+                        <pre class="sample-json-preview" id="preview-multi" hidden></pre>
+
+                        <div class="sample-file-card">
+                            <div class="sample-file-icon">&#128203;</div>
+                            <div class="sample-file-info">
+                                <div class="sample-file-name">Sample_Problem_Set_Attempted.json</div>
+                                <div class="sample-file-desc">Sample attempt record &mdash; use for Corrective mode or Longitudinal Analysis</div>
+                            </div>
+                            <div class="sample-file-actions">
+                                <button class="btn btn-outline btn-sm" data-view="attempt">View</button>
+                                <button class="btn btn-outline btn-sm" data-dl="attempt">Download</button>
+                            </div>
+                        </div>
+                        <pre class="sample-json-preview" id="preview-attempt" hidden></pre>
+
+                    </div>
+                </details>
+            </div>
         `;
+
+        // File upload handlers
         const uploadArea = this.container.querySelector('#upload-area');
         const fileInput = this.container.querySelector('#file-input');
         uploadArea.addEventListener('click', () => fileInput.click());
@@ -100,6 +155,35 @@ class MCQApp {
         fileInput.addEventListener('change', () => {
             if (fileInput.files.length) this.handleProblemSetUpload(fileInput.files[0]);
         });
+
+        // Sample file — View toggles
+        const viewData = { single: SAMPLE_PROBLEM_SET, multi: SAMPLE_PROBLEM_SETS, attempt: SAMPLE_ATTEMPT };
+        this.container.querySelectorAll('[data-view]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const key = btn.dataset.view;
+                const pre = this.container.querySelector(`#preview-${key}`);
+                if (pre.hidden) {
+                    pre.textContent = JSON.stringify(viewData[key], null, 2);
+                    pre.hidden = false;
+                    btn.textContent = 'Hide';
+                } else {
+                    pre.hidden = true;
+                    btn.textContent = 'View';
+                }
+            });
+        });
+
+        // Sample file — Download buttons
+        this.container.querySelector('[data-dl="single"]').addEventListener('click', () => {
+            downloadJSON(SAMPLE_PROBLEM_SET, 'Sample_Problem_Set.json');
+        });
+        this.container.querySelector('[data-dl="multi"]').addEventListener('click', () => {
+            downloadJSON(SAMPLE_PROBLEM_SETS, 'Sample_Problem_Sets.json');
+        });
+        this.container.querySelector('[data-dl="attempt"]').addEventListener('click', () => {
+            downloadJSON(SAMPLE_ATTEMPT, 'Sample_Problem_Set_Attempted.json');
+        });
+
         this.container.querySelector('#btn-longitudinal').addEventListener('click', () => {
             this.navigate('longitudinal');
         });

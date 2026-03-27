@@ -494,6 +494,94 @@ body {
 .mb-2 { margin-bottom: 1rem; }
 .gap-row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
 
+/* --- Sample Files --- */
+.sample-files-details {
+    margin: -0.25rem 0;
+}
+.sample-files-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.35rem 0;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+.sample-files-summary::-webkit-details-marker { display: none; }
+.sample-files-summary::before {
+    content: '\25B6';
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+}
+details[open] .sample-files-summary::before {
+    transform: rotate(90deg);
+}
+.sample-files-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text);
+}
+.sample-files-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+.sample-files-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-top: 1rem;
+}
+.sample-file-card {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+}
+.sample-file-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+.sample-file-info {
+    flex: 1;
+    min-width: 0;
+}
+.sample-file-name {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text);
+    font-family: 'Courier New', Courier, monospace;
+}
+.sample-file-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+}
+.sample-file-actions {
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+.sample-json-preview {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.85rem 1rem;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--text);
+    overflow-x: auto;
+    white-space: pre;
+    max-height: 320px;
+    overflow-y: auto;
+    margin-top: -0.35rem;
+}
+
 /* --- Responsive --- */
 @media (max-width: 640px) {
     .app-header h1 { font-size: 1.2rem; }
