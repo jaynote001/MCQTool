@@ -1,27 +1,117 @@
-Elements of a Question Set:
-Topic
-Concept Mapping
-Question Statement
-Options
-Answere Key
-Reasoning
-
-Practise Modes
-Straight (1 Time)
-Jumbled
+MCQ Tool - Idea Document (Reorganized v3)
+==========================================
 
 
-Practise
-Once a person clicks on practise, problems are given to the person in a mode set by Practise Modes.
-Person can click
+1. PROBLEM SET (Content Structure)
+-----------------------------------
+A Problem Set is a JSON file containing MCQ problems for practice.
 
-Output
-For each Question:
-1) Option Selected (Radio Button along with each Option)
-2) Confidence/Surity Level Selected (S - Sure, SS - Semi Sure, D - Doubtfull, G - Guess)
-3) Cognitive Grip Statistics (Attempt/Accuracy/Surity) Displayed at the end of practise session.
+Elements of a Problem Set:
+- Topic
+- Concept Mapping
+- Question Statement
+- Options
+- Answer Key
+- Reasoning (why the correct answer is right and why others are wrong)
 
-Following are good Statistics
-Accuracy in Surity of S and SS (Shows how good assessment you have about your knowledge)
+A single JSON file can contain multiple Problem Sets, each named appropriately.
+Learner should be able to select a specific Problem Set from the file for practice.
 
-This practise session can be downloaded and stored in a file for future practise and analyzing how you cognitive grip is improving over time.
+
+2. PRACTICE MODES
+-----------------------------------
+- Straight: Problems presented in authored order, single pass.
+- Jumbled: Problems presented in randomized order, single pass.
+- Corrective: Problems and Previous Attempt Files are uploaed in JSON format. Practise all the questions which are
+not Correct and Sure. Keep giving the problems which are still incorrectly attempted in session till I get it correct.
+At each incorrect attempt display reasoning around it.
+
+
+3. PRACTICE SESSION (3 Phases)
+-----------------------------------
+
+Phase 1: Setup
+- Learner uploads a Problem Set JSON file.
+- Learner selects a specific Problem Set (if file has multiple).
+- Learner selects a Practice Mode (Straight / Jumbled).
+- Learner can split a Problem Set and choose to practice just 5 or 10
+  questions at a time in one Practice Session (chunking).
+
+Phase 2: Attempt (Per Question)
+- Problem Statement and Options are displayed.
+- Learner selects one Option (Radio Button).
+- Learner selects a Confidence Level:
+    S  = Sure
+    SS = Semi-Sure
+    D  = Doubtful
+    G  = Guess
+- Time spent on each problem is tracked automatically (in seconds).
+- Total time spent across all problems in the session is recorded.
+
+Phase 3: Post-Attempt (after chunk is submitted)
+- Step 1: Analysis Statistics are displayed (see §5).
+- Step 2: Feedback/Review Session runs (see §4).
+- Step 3: Reinforcement Session runs (see §4.2).
+- Learner can then continue with the next chunk or stop.
+
+
+4. FEEDBACK & REINFORCEMENT (Post-Practice)
+-----------------------------------
+
+4.1 Review Session
+After each Practice Session, problems are shown in the following priority order
+along with the correct option and reasoning:
+
+Priority   Category
+--------   ----------------------
+1          Correct + Semi-Sure (SS)
+2          Correct + Doubtful (D)
+3          Incorrect + Sure (S)
+4          Incorrect + Doubtful (D)
+5          Correct + Guess (G)
+6          Incorrect + Guess (G)
+
+Skipped: Correct + Sure (S) — solid grip, no review needed.
+
+4.2 Reinforcement Session
+After the Review Session (where the learner has seen correct answers and
+reasoning), the same problems are presented again for re-attempt:
+
+- Problems from §4.1 are asked again (all except Correct + Sure).
+- If the learner answers a problem correctly, it is cleared.
+- If the learner answers incorrectly, the correct option and reasoning
+  are shown immediately, and the problem stays in the queue.
+- Session keeps running until all problems are answered correctly.
+- Learner should have the option to exit this session early at any point.
+- Attempt or option update from this session don't affect Analysis Statisitcs. (*** Very Important ***)
+
+
+5. ANALYSIS STATISTICS (Per Session)
+-----------------------------------
+After each Practice Session, the following statistics are displayed:
+
+1) Attempted Questions
+2) Total Accuracy
+3) Accuracy across Sure
+4) Accuracy across Semi-Sure
+5) Accuracy across Doubtful
+6) Total Sure percentage in Correct Questions
+7) Total Semi-Sure percentage in Correct Questions
+
+Key Insight Metric:
+- Accuracy in Sure and Semi-Sure shows how good your self-assessment
+  is about your own knowledge.
+
+
+6. EXPORT & LONGITUDINAL ANALYSIS
+-----------------------------------
+
+6.1 Export
+- Practice session can be downloaded and stored as a JSON file
+  (format as specified in Sample_Problem_Set_Attempted.json).
+- Enables future review and tracking cognitive grip improvement over time.
+
+6.2 Cross-Attempt Analysis
+- Learner should be able to upload multiple Attempt JSON files.
+- Tool provides cross-attempt analysis showing performance trends
+  and cognitive grip improvement over the period of time.

@@ -1,330 +1,341 @@
-================================================================================
-                        MCQ TOOL — EXPANDED IDEA DOCUMENT
-================================================================================
-Purpose: Serve as the foundation for Requirements Specification and Architecture
-================================================================================
+MCQ Tool - Expanded Idea Document
+==========================================
 
 
-1. VISION
---------------------------------------------------------------------------------
-A self-contained MCQ practice tool that lets a learner:
-  - Load curated question sets (authored as simple files).
-  - Practice in different modes.
-  - Self-assess with a confidence tag per question.
-  - Get graded results with cognitive-grip analytics.
-  - Export session data for longitudinal learning analysis.
+1. PROBLEM SET (Content Structure)
+===================================
 
-The tool emphasises *metacognition* — knowing what you know and what you don't —
-by combining accuracy with confidence tracking.
+A Problem Set is a JSON file containing MCQ problems for practice.
 
+1.1 Elements of a Problem
+---------------------------
+- Topic: The broad subject area (e.g. "Data Visualization").
+- Concept Mapping: A list of specific concepts covered within the topic
+  (e.g. "Histograms", "KDE", "Box Plots"). Each problem is tagged to one
+  concept from this list, enabling concept-wise analysis.
+- Question Statement: The problem text presented to the learner.
+- Options: A set of choices (A, B, C, D). Single-select only for v1.
+- Answer Key: The correct option letter.
+- Reasoning: Explanation of why the correct answer is right AND why each
+  wrong option is wrong. Shown during Review (§4.1) and Reinforcement (§4.2).
 
-2. CORE DOMAIN CONCEPTS
---------------------------------------------------------------------------------
+1.2 Problem Set Metadata
+--------------------------
+- ID: Unique identifier (e.g. "DV001") used to link attempts back to the set.
+- Title: Human-readable name for display during selection.
+- Source: Who/what authored the set (e.g. "ChatGPT", "Professor X").
+- Source_Content: Brief description of how the set was created.
+- Creation_Date: When the set was authored.
+- Concepts_Covered: Master list of concepts — each problem references one.
 
-2.1  Question Set (the content unit)
-     ─────────────────────────────────
-     A question set is authored once and practiced many times.
+1.3 File Formats
+-----------------
+Single Set File:
+  A JSON object with one Problem Set at the root.
+  (See Sample_Problem_Set.json)
 
-     Field               Description
-     ───────────────────  ────────────────────────────────────────────────
-     Set ID               Unique identifier for the question set
-     Title                Human-readable name (e.g. "OS — Process Mgmt")
-     Topic                High-level subject (e.g. "Operating Systems")
-     Concept Map          List of concepts/subtopics covered
-     Questions[]          Ordered list of Question objects (see 2.2)
-     Metadata             Author, creation date, version, difficulty band
+Multi-Set File:
+  A JSON array containing multiple Problem Set objects.
+  (See Sample_Problem_Sets.json)
+  Learner selects a specific Problem Set from the file for practice.
+  Selection screen displays Title, Concepts, and Problem count.
 
-2.2  Question (the atomic unit)
-     ─────────────────────────
-     Field               Description
-     ───────────────────  ────────────────────────────────────────────────
-     Question ID          Unique within the set (e.g. 3.1, 3.2)
-     Statement            The question text (supports plain text; future: md)
-     Options[]            Ordered list of choices (A, B, C, D …)
-     Answer Key           Correct option letter(s) — single-select for now
-     Reasoning            Explanation of correct answer & why others fail
-     Concept Tags[]       Which concepts from the concept map this tests
-     Difficulty            Optional (Easy / Medium / Hard)
-
-2.3  Confidence Tags (learner input per question)
-     ──────────────────────────────────────────────
-     Tag   Meaning        Interpretation
-     ───   ──────────     ───────────────────────────────────────────
-     S     Sure           Learner is confident in their choice
-     SS    Semi-Sure      Leaning towards the choice but not certain
-     D     Doubtful       Low confidence, might be wrong
-     G     Guess          Pure guess / no real understanding
-
-2.4  Practice Session (the runtime unit)
-     ────────────────────────────────────
-     Field               Description
-     ───────────────────  ────────────────────────────────────────────────
-     Session ID           Unique identifier (timestamp-based)
-     Question Set Ref     Which set is being practiced
-     Mode                 Straight / Jumbled (see §3)
-     Responses[]          One per question: { selected option, confidence }
-     Start Time           When the session began
-     End Time             When the session was submitted
-     Results              Computed after submission (see §5)
+  The tool should detect and handle both formats seamlessly.
 
 
-3. PRACTICE MODES
---------------------------------------------------------------------------------
+2. PRACTICE MODES
+===================================
 
-  Mode        Behaviour
-  ──────────  ──────────────────────────────────────────────────────────────
-  Straight    Questions presented in authored order, single pass.
-  Jumbled     Questions presented in randomised order, single pass.
+2.1 Straight
+--------------
+Problems presented in authored order, single pass.
+Learner sees problems exactly as the author sequenced them.
 
-  Future candidates (not in v1):
-  - Spaced Repetition   — resurface weak questions over days/weeks.
-  - Concept Focus        — filter by concept tags.
-  - Timed                — countdown per question or per session.
-  - Adaptive             — pick next question based on past performance.
+2.2 Jumbled
+--------------
+Problems presented in randomized order, single pass.
+The full set is shuffled first. If chunking is active, chunks are carved
+from the shuffled order.
 
+2.3 Corrective (New)
+----------------------
+A targeted re-practice mode driven by a previous attempt's results.
 
-4. PRACTICE FLOW (User Journey)
---------------------------------------------------------------------------------
+Setup:
+- Learner uploads BOTH the Problem Set JSON AND a previous Attempt JSON.
+- The tool reads the Attempt's Analysis_Report and identifies all problems
+  that were NOT "Correct + Sure" — i.e. any problem where the learner
+  either got it wrong or lacked full confidence.
 
-  ┌───────────────┐
-  │  Select Set   │  Learner picks a question set from available sets
-  └──────┬────────┘
-         │
-  ┌──────▼────────┐
-  │  Select Mode  │  Straight / Jumbled
-  └──────┬────────┘
-         │
-  ┌──────▼──────────────────────────────────────────────────┐
-  │  Practice Loop (for each question in mode order)        │
-  │                                                         │
-  │   ┌─────────────────────────────────────┐               │
-  │   │  Display Question + Options         │               │
-  │   └──────────────┬──────────────────────┘               │
-  │                  │                                      │
-  │   ┌──────────────▼──────────────────────┐               │
-  │   │  Learner selects option (radio)     │               │
-  │   └──────────────┬──────────────────────┘               │
-  │                  │                                      │
-  │   ┌──────────────▼──────────────────────┐               │
-  │   │  Learner selects confidence tag     │               │
-  │   │  (S / SS / D / G)                   │               │
-  │   └──────────────┬──────────────────────┘               │
-  │                  │                                      │
-  │   ┌──────────────▼──────────────────────┐               │
-  │   │  Next Question / Submit Session     │               │
-  │   └─────────────────────────────────────┘               │
-  └─────────────────────────────────────────────────────────┘
-         │
-  ┌──────▼─────────┐
-  │  Results View  │  See §5
-  └──────┬─────────┘
-         │
-  ┌──────▼──────────────┐
-  │  Export / Save       │  Download session for future analysis
-  └─────────────────────┘
+Which problems are included:
+  Category                   Included?   Why
+  -------------------------  ---------   ----------------------------------------
+  Correct + Sure             No          Solid grip — no need to re-practice.
+  Correct + Semi-Sure        Yes         Nearly there but not fully confident.
+  Correct + Doubtful         Yes         Got lucky or partial reasoning.
+  Correct + Guess            Yes         Right answer but zero understanding.
+  Incorrect + Sure           Yes         Blind spot — must fix.
+  Incorrect + Semi-Sure      Yes         Near-miss — must clarify.
+  Incorrect + Doubtful       Yes         Expected gap — must learn.
+  Incorrect + Guess          Yes         Expected gap — must learn.
+
+Flow:
+- Filtered problems are presented one at a time.
+- Learner selects an option.
+- If correct → problem is cleared.
+- If incorrect → correct option and reasoning are shown immediately,
+  problem stays in the queue for another attempt.
+- Session keeps running until all problems are answered correctly.
+- Learner can exit early at any point.
+
+This mode bridges the gap between a full re-attempt and the post-session
+Reinforcement (§4.2). It is useful days or weeks after the original attempt
+to check whether the learner has truly internalized the corrections.
 
 
-5. RESULTS & COGNITIVE GRIP ANALYTICS
---------------------------------------------------------------------------------
+3. PRACTICE SESSION (3 Phases)
+===================================
 
-5.1  Per-Question Result
-     ────────────────────
-     - Question ID
-     - Selected Option  vs  Correct Option  →  Correct / Incorrect
-     - Confidence Tag submitted
-     - Reasoning (revealed after submission)
+The core learning loop. A session may cover the full Problem Set or a
+chunk of it. Each session passes through three phases in sequence.
+(Corrective mode has a simplified flow — see §2.3.)
 
-5.2  Accuracy–Confidence Matrix
-     ────────────────────────────
-     This is the centrepiece analytical view.
+Phase 1: Setup
+---------------
+- Learner uploads a Problem Set JSON file (single or multi-set).
+- If multi-set: learner selects a specific Problem Set.
+- Learner selects a Practice Mode:
+    • Straight / Jumbled → standard practice
+    • Corrective → also requires uploading a previous Attempt JSON
+- Learner selects a Chunk Size (Straight / Jumbled only):
+    • All (entire set in one go)
+    • 5 questions per chunk
+    • 10 questions per chunk
+  Chunking lets the learner practice in manageable batches. After each
+  chunk completes Phase 3, learner can continue to the next chunk or stop.
 
-                        Correct             Incorrect
-                  ┌──────────────────┬──────────────────┐
-        Sure (S)  │  Solid Grip      │  Blind Spot !!   │
-                  │  (skip analysis) │  (highest alert)  │
-                  ├──────────────────┼──────────────────┤
-    SemiSure (SS) │  Nearly There    │  Near-Miss        │
-                  │  (reinforce)     │  (clarify)        │
-                  ├──────────────────┼──────────────────┤
-    Doubtful (D)  │  Lucky / Partial │  Expected Gap     │
-                  │  (explain fully) │  (teach)          │
-                  ├──────────────────┼──────────────────┤
-       Guess (G)  │  No Real Grip    │  Expected Gap     │
-                  │  (learning opp.) │  (teach)          │
-                  └──────────────────┴──────────────────┘
+Phase 2: Attempt (Per Question)
+--------------------------------
+For each problem in the chunk (in mode order):
+- Problem Statement and Options are displayed.
+- Learner selects one Option via radio button.
+- Learner selects a Confidence Level:
+    S  = Sure         — "I'm confident this is correct"
+    SS = Semi-Sure    — "I think so, but not fully certain"
+    D  = Doubtful     — "Probably wrong, but trying"
+    G  = Guess        — "No idea, picking at random"
+- Learner navigates to the next problem or submits the chunk.
+- Time spent on each problem is tracked automatically (in seconds).
+  The timer starts when the problem is displayed and stops when the
+  learner moves to the next problem or submits.
+- Total session time is the sum of all per-problem times.
 
-     Grading / analysis priority:
-       1. Correct + SS   →  reinforce
-       2. Correct + D    →  explain reasoning
-       3. Correct + G    →  treat as learning opportunity
-       4. Incorrect + S  →  highest priority correction (blind spot)
-       5. Incorrect + SS →  clarify confusion
-       6. Incorrect + D  →  explain clearly
-       7. Incorrect + G  →  explain clearly
-       *  Correct + S    →  skip (solid grip, no action needed)
+  The confidence tag is the key differentiator of this tool.
+  It transforms a simple quiz into a metacognitive exercise — the learner
+  is not just answering, but assessing how well they know the answer.
 
-5.3  Session Summary Statistics
-     ────────────────────────────
-     Metric                              Formula / Description
-     ──────────────────────────────────  ────────────────────────────────────
-     Total Questions                     Count of questions in session
-     Attempted                           Questions where an option was chosen
-     Correct                             Matches answer key
-     Accuracy %                          Correct / Attempted × 100
-     Confident Accuracy %                Correct in {S, SS} / Total {S, SS}
-     Blind Spot Count                    Incorrect + Sure
-     Solid Grip Count                    Correct + Sure
-     Weak Grip Count                     Correct + {D, G}
-     Concept-wise Breakdown              Accuracy grouped by concept tag
+Phase 3: Post-Attempt (after chunk is submitted)
+--------------------------------------------------
+Three sequential steps run after every chunk submission:
 
-     "Confident Accuracy" is the key health metric — it tells the learner
-     how well-calibrated their self-assessment is.
+  Step 1 → Analysis Statistics (§5)
+           Learner sees performance numbers — accuracy overall
+           and broken down by confidence level.
 
-5.4  Longitudinal View (across sessions)
-     ─────────────────────────────────────
-     When multiple sessions on the same set are stored:
-     - Accuracy trend over time
-     - Confidence calibration trend
-     - Blind-spot reduction tracking
-     - Concept-wise improvement
+  Step 2 → Review Session (§4.1)
+           Problems shown in priority order with correct answers
+           and reasoning. Learner reads and absorbs.
+
+  Step 3 → Reinforcement Session (§4.2)
+           Same problems re-asked until learner answers them all
+           correctly. Active recall after passive review.
+
+After Step 3, if more chunks remain:
+  → Learner chooses "Continue to next chunk" or "Stop here".
 
 
-6. DATA MODEL (Logical)
---------------------------------------------------------------------------------
+4. FEEDBACK & REINFORCEMENT (Post-Practice)
+=============================================
 
-  ┌─────────────────┐       ┌─────────────────────┐
-  │  QuestionSet    │       │  Question            │
-  ├─────────────────┤       ├─────────────────────┤
-  │  setId          │1────*│  questionId           │
-  │  title          │       │  statement            │
-  │  topic          │       │  options[]            │
-  │  conceptMap[]   │       │  answerKey            │
-  │  metadata{}     │       │  reasoning            │
-  │                 │       │  conceptTags[]        │
-  │                 │       │  difficulty           │
-  └─────────────────┘       └─────────────────────┘
+Two distinct sessions run back-to-back after each practice chunk.
+Review is passive learning. Reinforcement is active recall.
 
-  ┌─────────────────┐       ┌─────────────────────┐
-  │PracticeSession  │       │  Response            │
-  ├─────────────────┤       ├─────────────────────┤
-  │  sessionId      │1────*│  questionId           │
-  │  setId (FK)     │       │  selectedOption       │
-  │  mode           │       │  confidenceTag        │
-  │  startTime      │       │  isCorrect (derived)  │
-  │  endTime        │       │                       │
-  │  summary{}      │       │                       │
-  └─────────────────┘       └─────────────────────┘
+4.1 Review Session (Passive — Read & Absorb)
+----------------------------------------------
+Problems are shown in a specific priority order designed to maximize
+learning impact. Each problem displays:
+  - Problem Statement
+  - All Options (learner's selection highlighted)
+  - Correct Option (highlighted differently)
+  - Full Reasoning/Explanation
+  - The learner's Confidence Tag (for self-reflection)
 
+Priority order — problems needing the most attention come first:
 
-7. QUESTION SET FILE FORMAT (Authoring)
---------------------------------------------------------------------------------
-Question sets should be easy to author in any text editor.
-Proposed format: structured plain-text or JSON/YAML.
+Priority   Category                  Why This Order
+--------   ----------------------    ----------------------------------------
+1          Correct + Semi-Sure       Nearly there — reinforce the reasoning
+                                     so the learner moves from SS → S.
+2          Correct + Doubtful        Lucky or partial reasoning — needs full
+                                     explanation to build real understanding.
+3          Incorrect + Sure          BLIND SPOT — learner was confident but
+                                     wrong. Most dangerous gap. Must fix.
+4          Incorrect + Doubtful      Expected gap — learner suspected they
+                                     were wrong. Teach the concept clearly.
+5          Correct + Guess           No real understanding — right answer by
+                                     chance. Treat as fresh learning moment.
+6          Incorrect + Guess         Expected gap — no knowledge, no surprise.
+                                     Teach from scratch.
 
-  Example (plain-text sketch):
+Skipped: Correct + Sure — solid cognitive grip. No review needed.
 
-  ---
-  SetID: OS-PM-001
-  Title: Operating Systems — Process Management
-  Topic: Operating Systems
-  Concepts: Process Lifecycle, Scheduling, Context Switching, IPC
-  ---
+4.2 Reinforcement Session (Active — Re-Attempt Until Correct)
+--------------------------------------------------------------
+After the Review Session, learner has seen all correct answers and
+reasoning. Now the same problems are presented again for re-attempt
+to cement learning through active recall.
 
-  Q: 3.1
-  Concepts: Process Lifecycle
-  Difficulty: Medium
-  Statement: Which of the following is NOT a valid process state?
-  A) Running
-  B) Blocked
-  C) Compiling
-  D) Ready
-  Answer: C
-  Reasoning: Compiling is not a process state in the standard 5-state
-  process model. The valid states are New, Ready, Running, Blocked, Exit.
+Rules:
+- All problems from §4.1 are queued (everything except Correct + Sure).
+- Problems presented one at a time.
+- If learner answers correctly → problem is cleared from the queue.
+- If learner answers incorrectly → correct option and reasoning shown
+  immediately, problem stays in the queue for another attempt.
+- Session continues looping until queue is empty (all answered correctly).
+- Learner has the option to exit early at any point.
 
-  Q: 3.2
-  ...
+Critical Rule:
+  *** Responses in the Reinforcement Session do NOT affect
+      the Analysis Statistics from Step 1. ***
+  Statistics reflect only the original attempt (Phase 2).
+  Reinforcement is purely a learning exercise, not a scoring one.
 
+4.3 Relationship Between Reinforcement (§4.2) and Corrective Mode (§2.3)
+--------------------------------------------------------------------------
+Both involve re-attempting problems until correct. The difference:
 
-8. EXPORT / SESSION FILE FORMAT
---------------------------------------------------------------------------------
-Each completed session can be exported for:
-  a) Re-review by the learner.
-  b) Feeding into the grading protocol (see §5.2).
-  c) Longitudinal analysis across sessions.
-
-  Proposed export content:
-  - Session metadata (ID, set, mode, timestamps)
-  - Per-question: Q#, selected option, confidence tag, correct/incorrect
-  - Summary statistics block
-  - Format: JSON (machine-readable) + optional human-readable text view
+  Aspect             Reinforcement (§4.2)       Corrective Mode (§2.3)
+  ─────────────────  ─────────────────────────  ──────────────────────────
+  When               Immediately after review   Days/weeks later
+  Input              Current session results     A saved Attempt JSON file
+  Purpose            Cement just-reviewed info   Verify long-term retention
+  Affects stats?     No                         No (learning exercise only)
+  Part of session?   Yes (Phase 3, Step 3)      Standalone session
 
 
-9. SYSTEM COMPONENTS (High-Level)
---------------------------------------------------------------------------------
+5. ANALYSIS STATISTICS (Per Session)
+======================================
 
-  ┌──────────────────────────────────────────────────────────────────┐
-  │                        MCQ Tool                                  │
-  ├──────────────┬──────────────┬──────────────┬────────────────────┤
-  │  Content     │  Practice    │  Grading &   │  Storage &         │
-  │  Layer       │  Engine      │  Analytics   │  Export            │
-  ├──────────────┼──────────────┼──────────────┼────────────────────┤
-  │ • Parse      │ • Mode       │ • Accuracy–  │ • Save session     │
-  │   question   │   selection  │   Confidence │   to file          │
-  │   set files  │ • Question   │   Matrix     │ • Load past        │
-  │ • Validate   │   sequencing │ • Per-Q      │   sessions         │
-  │   structure  │ • Collect    │   analysis   │ • Export JSON /    │
-  │ • Serve Qs   │   responses  │ • Summary    │   text report      │
-  │   to engine  │ • Timer      │   stats      │ • Longitudinal     │
-  │              │   (future)   │ • Concept    │   data store       │
-  │              │              │   breakdown  │                    │
-  └──────────────┴──────────────┴──────────────┴────────────────────┘
+Computed and displayed immediately after each chunk is submitted
+(Phase 3, Step 1). These are the core metrics for understanding
+cognitive grip.
 
-  UI Layer (on top of all components):
-  • Select question set → Select mode → Practice loop → Results view
-  • Technology choice deferred to architecture phase.
-  • Should work offline; no server dependency for v1.
+5.1 Core Metrics
+-----------------
+#   Metric                                    What It Answers
+--  ----------------------------------------  -----------------------------------
+1   Attempted Questions                       How many problems the learner answered
+2   Total Accuracy (%)                        Overall correctness rate
+3   Accuracy across Sure (%)                  "When I say Sure, am I actually right?"
+4   Accuracy across Semi-Sure (%)             "When I say Semi-Sure, am I right?"
+5   Accuracy across Doubtful (%)              "When I doubt myself, how often am
+                                               I still right?"
+6   Sure % in Correct Questions               "Of what I got right, how much did
+                                               I truly know (Sure)?"
+7   Semi-Sure % in Correct Questions          "Of what I got right, how much was
+                                               I almost-sure about?"
+
+5.2 What These Metrics Reveal
+-------------------------------
+Metrics 3–5 measure CALIBRATION:
+  How well the learner's confidence matches actual accuracy.
+  - High Accuracy in Sure = good self-calibration.
+  - Low Accuracy in Sure = dangerous blind spots.
+  - High Accuracy in Doubtful = underconfidence (knows more than they think).
+
+Metrics 6–7 measure KNOWLEDGE QUALITY:
+  Of everything the learner got right, how much was genuine knowledge
+  vs. lucky guessing?
+  - High (Sure% + Semi-Sure%) in Correct = genuine, reliable knowledge.
+  - High (Doubtful% + Guess%) in Correct = fragile, luck-based correctness.
+
+Key Insight Metric:
+  Accuracy in Sure and Semi-Sure combined shows how good the learner's
+  self-assessment is about their own knowledge. This is the single most
+  important number for tracking cognitive grip.
+
+5.3 Accuracy–Confidence Matrix (Visual Summary)
+-------------------------------------------------
+All results map to a 4×2 matrix:
+
+                      Correct              Incorrect
+                ┌───────────────────┬───────────────────┐
+    Sure (S)    │  Solid Grip       │  Blind Spot !!    │
+                │  (no review)      │  (highest alert)  │
+                ├───────────────────┼───────────────────┤
+  Semi-Sure(SS) │  Nearly There     │  Near-Miss        │
+                │  (reinforce)      │  (clarify)        │
+                ├───────────────────┼───────────────────┤
+  Doubtful (D)  │  Underconfident   │  Expected Gap     │
+                │  (build certainty)│  (teach)          │
+                ├───────────────────┼───────────────────┤
+    Guess (G)   │  Lucky            │  Expected Gap     │
+                │  (learn properly) │  (teach)          │
+                └───────────────────┴───────────────────┘
+
+Each cell shows a count and percentage. Gives a single-glance view
+of where the learner stands across all confidence–accuracy combinations.
+
+5.4 Concept-Wise Breakdown
+----------------------------
+Since each problem has a Concept_Map, statistics can be grouped by concept:
+
+  Concept                         Problems   Correct   Accuracy
+  ──────────────────────────────  ────────   ───────   ────────
+  Histograms                      1          1         100%
+  Kernel Density Estimate (KDE)   1          0         0%
+
+Tells the learner exactly which concepts need work, rather than
+just an overall accuracy number.
 
 
-10. BOUNDARIES & CONSTRAINTS (v1)
---------------------------------------------------------------------------------
-  In scope:
-  ✓ Single-select MCQ only
-  ✓ Offline / local-first (no auth, no server)
-  ✓ File-based question sets (no database)
-  ✓ Straight + Jumbled modes
-  ✓ Confidence tagging (S / SS / D / G)
-  ✓ Accuracy–Confidence matrix + summary stats
-  ✓ Session export (JSON)
-  ✓ Session history stored locally
+6. EXPORT & LONGITUDINAL ANALYSIS
+===================================
 
-  Out of scope for v1 (future):
-  ✗ Multi-select / fill-in-the-blank question types
-  ✗ User accounts / authentication
-  ✗ Cloud sync
-  ✗ Spaced repetition / adaptive modes
-  ✗ Question set editor inside the tool
-  ✗ Timed mode
-  ✗ Image / diagram support in questions
-  ✗ Collaborative features
+6.1 Export
+-----------
+- After each session, learner can download the Attempt Record as a JSON file.
+  (Format as in Sample_Problem_Set_Attempted.json)
+- Contains:
+    • Session metadata (Problem_Set_ID, Attempt_Date, unique session ID)
+    • Per-problem responses (selected option + confidence level)
+    • Full Analysis_Report (all statistics from §5 + feedback review order)
+- File naming: {SetID}_{Date}_{Time}_Attempted.json
+  (e.g. DV001_20240612_143022_Attempted.json)
 
+6.2 Cross-Attempt Analysis (Longitudinal View)
+------------------------------------------------
+Learner uploads multiple Attempt JSON files for the same Problem Set.
+The tool shows performance trends over time:
 
-11. GLOSSARY
---------------------------------------------------------------------------------
-  Term                 Definition
-  ────────────────     ────────────────────────────────────────────────────
-  Question Set         A file containing topic, concepts, and questions
-  Concept Map          List of subtopics/concepts a question set covers
-  Confidence Tag       S/SS/D/G self-assessed certainty on each answer
-  Cognitive Grip       How well a learner truly understands a concept,
-                       measured by accuracy × confidence calibration
-  Blind Spot           Incorrect answer marked as Sure — the learner
-                       doesn't know what they don't know
-  Confident Accuracy   Accuracy among questions tagged S or SS
-  Session              One complete run through a question set
-  Longitudinal View    Analysis of progress across multiple sessions
+  What To Track                       What It Shows
+  ----------------------------------  ------------------------------------
+  Total Accuracy trend                "Am I learning the content?"
+  Accuracy in Sure trend              "Am I reducing my blind spots?"
+  Sure% in Correct trend              "Is more of my knowledge genuine?"
+  Blind Spot count trend              "Are my dangerous gaps shrinking?"
+  Concept-wise accuracy over time     "Which concepts are improving?"
+  Confidence distribution shift       "Am I moving from Guess → Sure?"
 
+This fulfills the core vision: analyzing how cognitive grip improves over time.
 
-================================================================================
-  END OF EXPANDED IDEA — Ready for Requirements & Architecture derivation
-================================================================================
+6.3 Corrective Mode as Longitudinal Tool
+------------------------------------------
+The Corrective mode (§2.3) plugs directly into the longitudinal workflow:
+  1. Learner practices a set → exports Attempt JSON.
+  2. Days later, learner uploads the set + old Attempt JSON in Corrective mode.
+  3. Only weak/incorrect problems are re-practiced.
+  4. New Attempt JSON is exported.
+  5. Comparing old and new Attempts shows exactly which gaps were closed.
+
+This creates a natural cycle: Practice → Export → Review gaps → Correct → Export → Compare.
