@@ -338,4 +338,4 @@ The Corrective mode (§2.3) plugs directly into the longitudinal workflow:
   4. New Attempt JSON is exported.
   5. Comparing old and new Attempts shows exactly which gaps were closed.
 
-This creates a natural cycle: Practice → Export → Review gaps → Correct → Export → Compare.
+This creates a natural cycle: Practice → Export → Review gaps → Correct → Export → Compare. 
