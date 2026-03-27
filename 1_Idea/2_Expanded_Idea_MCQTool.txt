@@ -1,0 +1,330 @@
+================================================================================
+                        MCQ TOOL — EXPANDED IDEA DOCUMENT
+================================================================================
+Purpose: Serve as the foundation for Requirements Specification and Architecture
+================================================================================
+
+
+1. VISION
+--------------------------------------------------------------------------------
+A self-contained MCQ practice tool that lets a learner:
+  - Load curated question sets (authored as simple files).
+  - Practice in different modes.
+  - Self-assess with a confidence tag per question.
+  - Get graded results with cognitive-grip analytics.
+  - Export session data for longitudinal learning analysis.
+
+The tool emphasises *metacognition* — knowing what you know and what you don't —
+by combining accuracy with confidence tracking.
+
+
+2. CORE DOMAIN CONCEPTS
+--------------------------------------------------------------------------------
+
+2.1  Question Set (the content unit)
+     ─────────────────────────────────
+     A question set is authored once and practiced many times.
+
+     Field               Description
+     ───────────────────  ────────────────────────────────────────────────
+     Set ID               Unique identifier for the question set
+     Title                Human-readable name (e.g. "OS — Process Mgmt")
+     Topic                High-level subject (e.g. "Operating Systems")
+     Concept Map          List of concepts/subtopics covered
+     Questions[]          Ordered list of Question objects (see 2.2)
+     Metadata             Author, creation date, version, difficulty band
+
+2.2  Question (the atomic unit)
+     ─────────────────────────
+     Field               Description
+     ───────────────────  ────────────────────────────────────────────────
+     Question ID          Unique within the set (e.g. 3.1, 3.2)
+     Statement            The question text (supports plain text; future: md)
+     Options[]            Ordered list of choices (A, B, C, D …)
+     Answer Key           Correct option letter(s) — single-select for now
+     Reasoning            Explanation of correct answer & why others fail
+     Concept Tags[]       Which concepts from the concept map this tests
+     Difficulty            Optional (Easy / Medium / Hard)
+
+2.3  Confidence Tags (learner input per question)
+     ──────────────────────────────────────────────
+     Tag   Meaning        Interpretation
+     ───   ──────────     ───────────────────────────────────────────
+     S     Sure           Learner is confident in their choice
+     SS    Semi-Sure      Leaning towards the choice but not certain
+     D     Doubtful       Low confidence, might be wrong
+     G     Guess          Pure guess / no real understanding
+
+2.4  Practice Session (the runtime unit)
+     ────────────────────────────────────
+     Field               Description
+     ───────────────────  ────────────────────────────────────────────────
+     Session ID           Unique identifier (timestamp-based)
+     Question Set Ref     Which set is being practiced
+     Mode                 Straight / Jumbled (see §3)
+     Responses[]          One per question: { selected option, confidence }
+     Start Time           When the session began
+     End Time             When the session was submitted
+     Results              Computed after submission (see §5)
+
+
+3. PRACTICE MODES
+--------------------------------------------------------------------------------
+
+  Mode        Behaviour
+  ──────────  ──────────────────────────────────────────────────────────────
+  Straight    Questions presented in authored order, single pass.
+  Jumbled     Questions presented in randomised order, single pass.
+
+  Future candidates (not in v1):
+  - Spaced Repetition   — resurface weak questions over days/weeks.
+  - Concept Focus        — filter by concept tags.
+  - Timed                — countdown per question or per session.
+  - Adaptive             — pick next question based on past performance.
+
+
+4. PRACTICE FLOW (User Journey)
+--------------------------------------------------------------------------------
+
+  ┌───────────────┐
+  │  Select Set   │  Learner picks a question set from available sets
+  └──────┬────────┘
+         │
+  ┌──────▼────────┐
+  │  Select Mode  │  Straight / Jumbled
+  └──────┬────────┘
+         │
+  ┌──────▼──────────────────────────────────────────────────┐
+  │  Practice Loop (for each question in mode order)        │
+  │                                                         │
+  │   ┌─────────────────────────────────────┐               │
+  │   │  Display Question + Options         │               │
+  │   └──────────────┬──────────────────────┘               │
+  │                  │                                      │
+  │   ┌──────────────▼──────────────────────┐               │
+  │   │  Learner selects option (radio)     │               │
+  │   └──────────────┬──────────────────────┘               │
+  │                  │                                      │
+  │   ┌──────────────▼──────────────────────┐               │
+  │   │  Learner selects confidence tag     │               │
+  │   │  (S / SS / D / G)                   │               │
+  │   └──────────────┬──────────────────────┘               │
+  │                  │                                      │
+  │   ┌──────────────▼──────────────────────┐               │
+  │   │  Next Question / Submit Session     │               │
+  │   └─────────────────────────────────────┘               │
+  └─────────────────────────────────────────────────────────┘
+         │
+  ┌──────▼─────────┐
+  │  Results View  │  See §5
+  └──────┬─────────┘
+         │
+  ┌──────▼──────────────┐
+  │  Export / Save       │  Download session for future analysis
+  └─────────────────────┘
+
+
+5. RESULTS & COGNITIVE GRIP ANALYTICS
+--------------------------------------------------------------------------------
+
+5.1  Per-Question Result
+     ────────────────────
+     - Question ID
+     - Selected Option  vs  Correct Option  →  Correct / Incorrect
+     - Confidence Tag submitted
+     - Reasoning (revealed after submission)
+
+5.2  Accuracy–Confidence Matrix
+     ────────────────────────────
+     This is the centrepiece analytical view.
+
+                        Correct             Incorrect
+                  ┌──────────────────┬──────────────────┐
+        Sure (S)  │  Solid Grip      │  Blind Spot !!   │
+                  │  (skip analysis) │  (highest alert)  │
+                  ├──────────────────┼──────────────────┤
+    SemiSure (SS) │  Nearly There    │  Near-Miss        │
+                  │  (reinforce)     │  (clarify)        │
+                  ├──────────────────┼──────────────────┤
+    Doubtful (D)  │  Lucky / Partial │  Expected Gap     │
+                  │  (explain fully) │  (teach)          │
+                  ├──────────────────┼──────────────────┤
+       Guess (G)  │  No Real Grip    │  Expected Gap     │
+                  │  (learning opp.) │  (teach)          │
+                  └──────────────────┴──────────────────┘
+
+     Grading / analysis priority:
+       1. Correct + SS   →  reinforce
+       2. Correct + D    →  explain reasoning
+       3. Correct + G    →  treat as learning opportunity
+       4. Incorrect + S  →  highest priority correction (blind spot)
+       5. Incorrect + SS →  clarify confusion
+       6. Incorrect + D  →  explain clearly
+       7. Incorrect + G  →  explain clearly
+       *  Correct + S    →  skip (solid grip, no action needed)
+
+5.3  Session Summary Statistics
+     ────────────────────────────
+     Metric                              Formula / Description
+     ──────────────────────────────────  ────────────────────────────────────
+     Total Questions                     Count of questions in session
+     Attempted                           Questions where an option was chosen
+     Correct                             Matches answer key
+     Accuracy %                          Correct / Attempted × 100
+     Confident Accuracy %                Correct in {S, SS} / Total {S, SS}
+     Blind Spot Count                    Incorrect + Sure
+     Solid Grip Count                    Correct + Sure
+     Weak Grip Count                     Correct + {D, G}
+     Concept-wise Breakdown              Accuracy grouped by concept tag
+
+     "Confident Accuracy" is the key health metric — it tells the learner
+     how well-calibrated their self-assessment is.
+
+5.4  Longitudinal View (across sessions)
+     ─────────────────────────────────────
+     When multiple sessions on the same set are stored:
+     - Accuracy trend over time
+     - Confidence calibration trend
+     - Blind-spot reduction tracking
+     - Concept-wise improvement
+
+
+6. DATA MODEL (Logical)
+--------------------------------------------------------------------------------
+
+  ┌─────────────────┐       ┌─────────────────────┐
+  │  QuestionSet    │       │  Question            │
+  ├─────────────────┤       ├─────────────────────┤
+  │  setId          │1────*│  questionId           │
+  │  title          │       │  statement            │
+  │  topic          │       │  options[]            │
+  │  conceptMap[]   │       │  answerKey            │
+  │  metadata{}     │       │  reasoning            │
+  │                 │       │  conceptTags[]        │
+  │                 │       │  difficulty           │
+  └─────────────────┘       └─────────────────────┘
+
+  ┌─────────────────┐       ┌─────────────────────┐
+  │PracticeSession  │       │  Response            │
+  ├─────────────────┤       ├─────────────────────┤
+  │  sessionId      │1────*│  questionId           │
+  │  setId (FK)     │       │  selectedOption       │
+  │  mode           │       │  confidenceTag        │
+  │  startTime      │       │  isCorrect (derived)  │
+  │  endTime        │       │                       │
+  │  summary{}      │       │                       │
+  └─────────────────┘       └─────────────────────┘
+
+
+7. QUESTION SET FILE FORMAT (Authoring)
+--------------------------------------------------------------------------------
+Question sets should be easy to author in any text editor.
+Proposed format: structured plain-text or JSON/YAML.
+
+  Example (plain-text sketch):
+
+  ---
+  SetID: OS-PM-001
+  Title: Operating Systems — Process Management
+  Topic: Operating Systems
+  Concepts: Process Lifecycle, Scheduling, Context Switching, IPC
+  ---
+
+  Q: 3.1
+  Concepts: Process Lifecycle
+  Difficulty: Medium
+  Statement: Which of the following is NOT a valid process state?
+  A) Running
+  B) Blocked
+  C) Compiling
+  D) Ready
+  Answer: C
+  Reasoning: Compiling is not a process state in the standard 5-state
+  process model. The valid states are New, Ready, Running, Blocked, Exit.
+
+  Q: 3.2
+  ...
+
+
+8. EXPORT / SESSION FILE FORMAT
+--------------------------------------------------------------------------------
+Each completed session can be exported for:
+  a) Re-review by the learner.
+  b) Feeding into the grading protocol (see §5.2).
+  c) Longitudinal analysis across sessions.
+
+  Proposed export content:
+  - Session metadata (ID, set, mode, timestamps)
+  - Per-question: Q#, selected option, confidence tag, correct/incorrect
+  - Summary statistics block
+  - Format: JSON (machine-readable) + optional human-readable text view
+
+
+9. SYSTEM COMPONENTS (High-Level)
+--------------------------------------------------------------------------------
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │                        MCQ Tool                                  │
+  ├──────────────┬──────────────┬──────────────┬────────────────────┤
+  │  Content     │  Practice    │  Grading &   │  Storage &         │
+  │  Layer       │  Engine      │  Analytics   │  Export            │
+  ├──────────────┼──────────────┼──────────────┼────────────────────┤
+  │ • Parse      │ • Mode       │ • Accuracy–  │ • Save session     │
+  │   question   │   selection  │   Confidence │   to file          │
+  │   set files  │ • Question   │   Matrix     │ • Load past        │
+  │ • Validate   │   sequencing │ • Per-Q      │   sessions         │
+  │   structure  │ • Collect    │   analysis   │ • Export JSON /    │
+  │ • Serve Qs   │   responses  │ • Summary    │   text report      │
+  │   to engine  │ • Timer      │   stats      │ • Longitudinal     │
+  │              │   (future)   │ • Concept    │   data store       │
+  │              │              │   breakdown  │                    │
+  └──────────────┴──────────────┴──────────────┴────────────────────┘
+
+  UI Layer (on top of all components):
+  • Select question set → Select mode → Practice loop → Results view
+  • Technology choice deferred to architecture phase.
+  • Should work offline; no server dependency for v1.
+
+
+10. BOUNDARIES & CONSTRAINTS (v1)
+--------------------------------------------------------------------------------
+  In scope:
+  ✓ Single-select MCQ only
+  ✓ Offline / local-first (no auth, no server)
+  ✓ File-based question sets (no database)
+  ✓ Straight + Jumbled modes
+  ✓ Confidence tagging (S / SS / D / G)
+  ✓ Accuracy–Confidence matrix + summary stats
+  ✓ Session export (JSON)
+  ✓ Session history stored locally
+
+  Out of scope for v1 (future):
+  ✗ Multi-select / fill-in-the-blank question types
+  ✗ User accounts / authentication
+  ✗ Cloud sync
+  ✗ Spaced repetition / adaptive modes
+  ✗ Question set editor inside the tool
+  ✗ Timed mode
+  ✗ Image / diagram support in questions
+  ✗ Collaborative features
+
+
+11. GLOSSARY
+--------------------------------------------------------------------------------
+  Term                 Definition
+  ────────────────     ────────────────────────────────────────────────────
+  Question Set         A file containing topic, concepts, and questions
+  Concept Map          List of subtopics/concepts a question set covers
+  Confidence Tag       S/SS/D/G self-assessed certainty on each answer
+  Cognitive Grip       How well a learner truly understands a concept,
+                       measured by accuracy × confidence calibration
+  Blind Spot           Incorrect answer marked as Sure — the learner
+                       doesn't know what they don't know
+  Confident Accuracy   Accuracy among questions tagged S or SS
+  Session              One complete run through a question set
+  Longitudinal View    Analysis of progress across multiple sessions
+
+
+================================================================================
+  END OF EXPANDED IDEA — Ready for Requirements & Architecture derivation
+================================================================================

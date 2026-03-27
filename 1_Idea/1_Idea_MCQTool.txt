@@ -1,0 +1,27 @@
+Elements of a Question Set:
+Topic
+Concept Mapping
+Question Statement
+Options
+Answere Key
+Reasoning
+
+Practise Modes
+Straight (1 Time)
+Jumbled
+
+
+Practise
+Once a person clicks on practise, problems are given to the person in a mode set by Practise Modes.
+Person can click
+
+Output
+For each Question:
+1) Option Selected (Radio Button along with each Option)
+2) Confidence/Surity Level Selected (S - Sure, SS - Semi Sure, D - Doubtfull, G - Guess)
+3) Cognitive Grip Statistics (Attempt/Accuracy/Surity) Displayed at the end of practise session.
+
+Following are good Statistics
+Accuracy in Surity of S and SS (Shows how good assessment you have about your knowledge)
+
+This practise session can be downloaded and stored in a file for future practise and analyzing how you cognitive grip is improving over time.
