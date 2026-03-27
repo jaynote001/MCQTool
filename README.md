@@ -6,7 +6,7 @@ No server, no database, no accounts — everything runs in your browser using JS
 
 ## Features
 
-- **3 Practice Modes**: Straight (authored order), Jumbled (randomized), Corrective (re-practice weak areas)
+- **3 Practice Modes**: Straight (authored order), Jumbled (randomized),  Corrective (re-practice weak areas)
 - **Confidence Tagging**: Rate each answer as Sure / Semi-Sure / Doubtful / Guess
 - **Analytics Dashboard**: Accuracy-confidence matrix, concept-wise breakdown, 9 core metrics
 - **Priority-Ordered Review**: Problems sorted by learning priority (blind spots first)
