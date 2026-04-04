@@ -694,18 +694,28 @@ class MCQApp {
         this.container.querySelectorAll('.option-item').forEach(item => {
             item.addEventListener('click', () => {
                 this.state.selectedOption = item.dataset.option;
-                this.render();
+                this.container.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+                item.classList.add('selected');
+                this.updatePracticeSubmitBtn();
             });
         });
         // Confidence selection
         this.container.querySelectorAll('.confidence-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.state.selectedConfidence = btn.dataset.confidence;
-                this.render();
+                this.container.querySelectorAll('.confidence-btn').forEach(el => el.className = 'confidence-btn');
+                const clsMap = { 'Sure': 'active-sure', 'Semi-Sure': 'active-semisure', 'Doubtful': 'active-doubtful', 'Guess': 'active-guess' };
+                btn.classList.add(clsMap[btn.dataset.confidence]);
+                this.updatePracticeSubmitBtn();
             });
         });
         // Next/Submit
         this.container.querySelector('#btn-next').addEventListener('click', () => this.handlePracticeNext());
+    }
+
+    updatePracticeSubmitBtn() {
+        const btn = this.container.querySelector('#btn-next');
+        if (btn) btn.disabled = !(this.state.selectedOption && this.state.selectedConfidence);
     }
 
     handlePracticeNext() {
@@ -821,13 +831,29 @@ class MCQApp {
         });
 
         this.container.querySelectorAll('.option-item').forEach(item => {
-            item.addEventListener('click', () => { this.state.selectedOption = item.dataset.option; this.render(); });
+            item.addEventListener('click', () => {
+                this.state.selectedOption = item.dataset.option;
+                this.container.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+                item.classList.add('selected');
+                this.updateCorrectiveSubmitBtn();
+            });
         });
         this.container.querySelectorAll('.confidence-btn').forEach(btn => {
-            btn.addEventListener('click', () => { this.state.selectedConfidence = btn.dataset.confidence; this.render(); });
+            btn.addEventListener('click', () => {
+                this.state.selectedConfidence = btn.dataset.confidence;
+                this.container.querySelectorAll('.confidence-btn').forEach(el => el.className = 'confidence-btn');
+                const clsMap = { 'Sure': 'active-sure', 'Semi-Sure': 'active-semisure', 'Doubtful': 'active-doubtful', 'Guess': 'active-guess' };
+                btn.classList.add(clsMap[btn.dataset.confidence]);
+                this.updateCorrectiveSubmitBtn();
+            });
         });
         this.container.querySelector('#btn-corrective-submit').addEventListener('click', () => this.handleCorrectiveSubmit());
         this.container.querySelector('#btn-exit-corrective').addEventListener('click', () => this.correctiveComplete());
+    }
+
+    updateCorrectiveSubmitBtn() {
+        const btn = this.container.querySelector('#btn-corrective-submit');
+        if (btn) btn.disabled = !(this.state.selectedOption && this.state.selectedConfidence);
     }
 
     handleCorrectiveSubmit() {
@@ -1249,7 +1275,10 @@ class MCQApp {
             this.container.querySelectorAll('.option-item').forEach(item => {
                 item.addEventListener('click', () => {
                     s.reinforcementSelectedOption = item.dataset.option;
-                    this.render();
+                    this.container.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+                    item.classList.add('selected');
+                    const btn = this.container.querySelector('#btn-reinf-submit');
+                    if (btn) btn.disabled = false;
                 });
             });
             this.container.querySelector('#btn-reinf-submit').addEventListener('click', () => {
