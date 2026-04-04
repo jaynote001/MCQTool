@@ -92,6 +92,17 @@ class MCQApp {
         window.scrollTo(0, 0);
     }
 
+    /**
+     * Merge new sets into existing problemSets, replacing duplicates by ID.
+     */
+    mergeProblemSets(newSets) {
+        const existing = new Map(this.state.problemSets.map(s => [s.ID, s]));
+        for (const s of newSets) {
+            existing.set(s.ID, s);
+        }
+        this.state.problemSets = [...existing.values()];
+    }
+
     // ======================== S1: Upload & Select ========================
 
     renderUploadScreen() {
@@ -362,7 +373,7 @@ class MCQApp {
                 errorEl.innerHTML = `<div class="error-msg"><strong>Validation Error:</strong><ul>${errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul></div>`;
                 return;
             }
-            this.state.problemSets = sets;
+            this.mergeProblemSets(sets);
             this.persistToStorage();
             if (sets.length === 1) {
                 this.state.selectedSet = sets[0];
@@ -406,7 +417,7 @@ class MCQApp {
             // Revoke old assets if any
             if (this.state.assetLoader) this.state.assetLoader.revokeAll();
             this.state.assetLoader = assetLoader;
-            this.state.problemSets = sets;
+            this.mergeProblemSets(sets);
             this.persistToStorage();
             if (sets.length === 1) {
                 this.state.selectedSet = sets[0];
@@ -433,7 +444,7 @@ class MCQApp {
             }
             if (this.state.assetLoader) this.state.assetLoader.revokeAll();
             this.state.assetLoader = assetLoader;
-            this.state.problemSets = sets;
+            this.mergeProblemSets(sets);
             this.persistToStorage();
             if (sets.length === 1) {
                 this.state.selectedSet = sets[0];
