@@ -365,29 +365,7 @@ class MCQApp {
             }
             this.mergeProblemSets(sets);
             this.persistToStorage();
-            if (sets.length === 1) {
-                this.state.selectedSet = sets[0];
-                this.navigate('setup');
-            } else {
-                listEl.innerHTML = `
-                    <h3 class="mt-2">Select a Problem Set</h3>
-                    <div class="set-list">${sets.map((s, i) => `
-                        <div class="set-item" data-index="${i}">
-                            <div>
-                                <div class="set-title">${escapeHtml(s.Title)}</div>
-                                <div class="set-meta">${escapeHtml(s.Concepts_Covered.join(', '))}</div>
-                            </div>
-                            <span class="set-count">${s.Problems.length} Qs</span>
-                        </div>
-                    `).join('')}</div>
-                `;
-                listEl.querySelectorAll('.set-item').forEach(item => {
-                    item.addEventListener('click', () => {
-                        this.state.selectedSet = sets[parseInt(item.dataset.index)];
-                        this.navigate('setup');
-                    });
-                });
-            }
+            this.navigate('upload');
         } catch (err) {
             errorEl.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
         }
@@ -409,12 +387,7 @@ class MCQApp {
             this.state.assetLoader = assetLoader;
             this.mergeProblemSets(sets);
             this.persistToStorage();
-            if (sets.length === 1) {
-                this.state.selectedSet = sets[0];
-                this.navigate('setup');
-            } else {
-                this.navigate('upload');
-            }
+            this.navigate('upload');
         } catch (err) {
             errorEl.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
         }
@@ -436,12 +409,7 @@ class MCQApp {
             this.state.assetLoader = assetLoader;
             this.mergeProblemSets(sets);
             this.persistToStorage();
-            if (sets.length === 1) {
-                this.state.selectedSet = sets[0];
-                this.navigate('setup');
-            } else {
-                this.navigate('upload');
-            }
+            this.navigate('upload');
         } catch (err) {
             if (err.name === 'AbortError') return; // User cancelled picker
             errorEl.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
