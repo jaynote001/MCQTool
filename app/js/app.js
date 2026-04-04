@@ -1,8 +1,10 @@
 // app.js — Main application: state management, screen rendering, navigation
-import { shuffle, readJSONFile, downloadJSON, formatPercent, formatTime, generateTimestamp, formatDate, escapeHtml } from './utils.js';
+import { shuffle, shuffleWithContextGroups, readJSONFile, downloadJSON, formatPercent, formatTime, generateTimestamp, formatDate, escapeHtml } from './utils.js';
 import { parseAndValidate, validateAttemptFile, filterForCorrective } from './fileParser.js';
 import { computeAnalysisReport, computeLongitudinalTrends, getReviewProblems, getReinforcementQueue, CONFIDENCE_LEVELS } from './analysisEngine.js';
 import { SAMPLE_PROBLEM_SET, SAMPLE_PROBLEM_SETS, SAMPLE_ATTEMPT } from './sampleData.js';
+import { renderContentBlocks, renderInlineRichText, activateLatex, renderContextGroup } from './richContentRenderer.js';
+import { AssetLoader, loadFromZip, loadFromDirectory } from './assetLoader.js';
 
 class MCQApp {
     constructor() {
@@ -12,6 +14,7 @@ class MCQApp {
             // Data
             problemSets: restored.problemSets || [],
             selectedSet: null,
+            assetLoader: null,
             // Session config
             mode: 'Straight',
             chunkSize: 'All',
@@ -89,6 +92,17 @@ class MCQApp {
         window.scrollTo(0, 0);
     }
 
+    /**
+     * Merge new sets into existing problemSets, replacing duplicates by ID.
+     */
+    mergeProblemSets(newSets) {
+        const existing = new Map(this.state.problemSets.map(s => [s.ID, s]));
+        for (const s of newSets) {
+            existing.set(s.ID, s);
+        }
+        this.state.problemSets = [...existing.values()];
+    }
+
     // ======================== S1: Upload & Select ========================
 
     renderUploadScreen() {
@@ -147,14 +161,23 @@ class MCQApp {
             attemptsHtml = '';
         }
 
+        const supportsDirectoryPicker = 'showDirectoryPicker' in window;
+
         this.container.innerHTML = `
-            <div class="card">
+            <div class="card upload-card">
                 <h2>Upload Problem Set</h2>
-                <div class="file-upload-area" id="upload-area">
-                    <input type="file" id="file-input" accept=".json">
-                    <span class="upload-label">
-                        <strong>Click to upload</strong> or drag &amp; drop a Problem Set JSON file
-                    </span>
+                <div class="upload-btn-row">
+                    <input type="file" id="file-input" accept=".json" hidden>
+                    <button class="btn btn-primary" id="btn-upload-json">Upload JSON</button>
+                    <input type="file" id="file-input-zip" accept=".zip" hidden>
+                    <button class="btn btn-outline" id="btn-upload-zip">Upload ZIP</button>
+                    ${supportsDirectoryPicker ? `
+                    <button class="btn btn-outline" id="btn-upload-dir">Upload Folder</button>
+                    ` : ''}
+                </div>
+                <div class="file-drop-area" id="drop-area">
+                    <div class="drop-icon">&#128449;</div>
+                    <div class="drop-label">Drag &amp; drop a JSON or ZIP file here</div>
                 </div>
                 <div id="upload-error"></div>
                 <div id="set-list-container"></div>
@@ -170,7 +193,7 @@ class MCQApp {
             </div>
             ` : ''}
 
-            <div class="card">
+            <div class="card" style="text-align:center;">
                 <h2>Longitudinal Analysis</h2>
                 <p style="color:var(--text-muted);margin-bottom:0.75rem;">Upload multiple Attempt files to view performance trends over time.</p>
                 <button class="btn btn-outline" id="btn-longitudinal">Open Longitudinal Analysis</button>
@@ -228,19 +251,40 @@ class MCQApp {
             </div>
         `;
 
-        // File upload handlers
-        const uploadArea = this.container.querySelector('#upload-area');
+        // Upload button handlers
         const fileInput = this.container.querySelector('#file-input');
-        uploadArea.addEventListener('click', () => fileInput.click());
-        uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = 'var(--primary)'; });
-        uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = ''; });
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.style.borderColor = '';
-            if (e.dataTransfer.files.length) this.handleProblemSetUpload(e.dataTransfer.files[0]);
-        });
+        const fileInputZip = this.container.querySelector('#file-input-zip');
+
+        this.container.querySelector('#btn-upload-json').addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', () => {
             if (fileInput.files.length) this.handleProblemSetUpload(fileInput.files[0]);
+        });
+
+        this.container.querySelector('#btn-upload-zip').addEventListener('click', () => fileInputZip.click());
+        fileInputZip.addEventListener('change', () => {
+            if (fileInputZip.files.length) this.handleZipUpload(fileInputZip.files[0]);
+        });
+
+        const dirBtn = this.container.querySelector('#btn-upload-dir');
+        if (dirBtn) {
+            dirBtn.addEventListener('click', () => this.handleDirectoryUpload());
+        }
+
+        // Drag & drop zone
+        const dropArea = this.container.querySelector('#drop-area');
+        dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('drop-active'); });
+        dropArea.addEventListener('dragleave', () => { dropArea.classList.remove('drop-active'); });
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropArea.classList.remove('drop-active');
+            if (e.dataTransfer.files.length) {
+                const file = e.dataTransfer.files[0];
+                if (file.name.endsWith('.zip')) {
+                    this.handleZipUpload(file);
+                } else {
+                    this.handleProblemSetUpload(file);
+                }
+            }
         });
 
         // Loaded sets — click to start new session
@@ -319,32 +363,55 @@ class MCQApp {
                 errorEl.innerHTML = `<div class="error-msg"><strong>Validation Error:</strong><ul>${errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul></div>`;
                 return;
             }
-            this.state.problemSets = sets;
+            this.mergeProblemSets(sets);
             this.persistToStorage();
-            if (sets.length === 1) {
-                this.state.selectedSet = sets[0];
-                this.navigate('setup');
-            } else {
-                listEl.innerHTML = `
-                    <h3 class="mt-2">Select a Problem Set</h3>
-                    <div class="set-list">${sets.map((s, i) => `
-                        <div class="set-item" data-index="${i}">
-                            <div>
-                                <div class="set-title">${escapeHtml(s.Title)}</div>
-                                <div class="set-meta">${escapeHtml(s.Concepts_Covered.join(', '))}</div>
-                            </div>
-                            <span class="set-count">${s.Problems.length} Qs</span>
-                        </div>
-                    `).join('')}</div>
-                `;
-                listEl.querySelectorAll('.set-item').forEach(item => {
-                    item.addEventListener('click', () => {
-                        this.state.selectedSet = sets[parseInt(item.dataset.index)];
-                        this.navigate('setup');
-                    });
-                });
-            }
+            this.navigate('upload');
         } catch (err) {
+            errorEl.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    async handleZipUpload(file) {
+        const errorEl = this.container.querySelector('#upload-error');
+        errorEl.innerHTML = '';
+        try {
+            const { json, assetLoader } = await loadFromZip(file);
+            const { sets, errors } = parseAndValidate(json);
+            if (errors.length > 0) {
+                errorEl.innerHTML = `<div class="error-msg"><strong>Validation Error:</strong><ul>${errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul></div>`;
+                assetLoader.revokeAll();
+                return;
+            }
+            // Revoke old assets if any
+            if (this.state.assetLoader) this.state.assetLoader.revokeAll();
+            this.state.assetLoader = assetLoader;
+            this.mergeProblemSets(sets);
+            this.persistToStorage();
+            this.navigate('upload');
+        } catch (err) {
+            errorEl.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    async handleDirectoryUpload() {
+        const errorEl = this.container.querySelector('#upload-error');
+        errorEl.innerHTML = '';
+        try {
+            const dirHandle = await window.showDirectoryPicker();
+            const { json, assetLoader } = await loadFromDirectory(dirHandle);
+            const { sets, errors } = parseAndValidate(json);
+            if (errors.length > 0) {
+                errorEl.innerHTML = `<div class="error-msg"><strong>Validation Error:</strong><ul>${errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul></div>`;
+                assetLoader.revokeAll();
+                return;
+            }
+            if (this.state.assetLoader) this.state.assetLoader.revokeAll();
+            this.state.assetLoader = assetLoader;
+            this.mergeProblemSets(sets);
+            this.persistToStorage();
+            this.navigate('upload');
+        } catch (err) {
+            if (err.name === 'AbortError') return; // User cancelled picker
             errorEl.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
         }
     }
@@ -475,7 +542,11 @@ class MCQApp {
             this.navigate('corrective');
         } else {
             let problems = [...set.Problems];
-            if (s.mode === 'Jumbled') problems = shuffle(problems);
+            if (s.mode === 'Jumbled') {
+                // Context-group-aware shuffle: keeps grouped problems together
+                const hasContextGroups = set.Context_Groups && set.Context_Groups.length > 0;
+                problems = hasContextGroups ? shuffleWithContextGroups(problems) : shuffle(problems);
+            }
             const chunkSize = s.chunkSize === 'All' ? problems.length : parseInt(s.chunkSize);
             s.chunks = [];
             for (let i = 0; i < problems.length; i += chunkSize) {
@@ -498,6 +569,22 @@ class MCQApp {
 
     // ======================== S3: Practice Screen ========================
 
+    /**
+     * Get context group info for the current problem in the queue.
+     * Returns { group, isFirst } or null if no context group.
+     */
+    getContextForProblem(problemIndex, problemQueue) {
+        const problem = problemQueue[problemIndex];
+        if (!problem.Context_Group) return null;
+        const set = this.state.selectedSet;
+        if (!set.Context_Groups) return null;
+        const group = set.Context_Groups.find(cg => cg.Group_ID === problem.Context_Group);
+        if (!group) return null;
+        // Is this the first problem in the queue with this Context_Group?
+        const isFirst = !problemQueue.slice(0, problemIndex).some(p => p.Context_Group === problem.Context_Group);
+        return { group, isFirst };
+    }
+
     renderPracticeScreen() {
         const s = this.state;
         const problem = s.problemQueue[s.currentProblemIndex];
@@ -516,17 +603,13 @@ class MCQApp {
                     <span class="progress-text">Chunk ${s.currentChunkIndex + 1}/${s.chunks.length}</span>
                 </div>
 
-                <div class="problem-statement" style="font-size:1.05rem;font-weight:600;margin-bottom:1rem;line-height:1.5;">
-                    ${escapeHtml(problem.Problem_Statement)}
+                <div id="context-group-container"></div>
+                <div id="problem-content-container"></div>
+
+                <div class="problem-statement" style="font-size:1.05rem;font-weight:600;margin-bottom:1rem;line-height:1.5;" id="problem-statement-el">
                 </div>
 
-                <div class="option-list">
-                    ${Object.entries(problem.Options).map(([key, text]) => `
-                        <div class="option-item ${s.selectedOption === key ? 'selected' : ''}" data-option="${key}">
-                            <span class="option-key">${key}</span>
-                            <span class="option-text">${escapeHtml(text)}</span>
-                        </div>
-                    `).join('')}
+                <div class="option-list" id="option-list-el">
                 </div>
 
                 <h3>Confidence Level</h3>
@@ -544,22 +627,63 @@ class MCQApp {
             </div>
         `;
 
+        // Render context group
+        const ctxInfo = this.getContextForProblem(s.currentProblemIndex, s.problemQueue);
+        const ctxContainer = this.container.querySelector('#context-group-container');
+        if (ctxInfo) {
+            ctxContainer.appendChild(renderContextGroup(ctxInfo.group, ctxInfo.isFirst, s.assetLoader));
+        }
+
+        // Render problem-level Content blocks
+        const problemContentContainer = this.container.querySelector('#problem-content-container');
+        if (problem.Content && problem.Content.length > 0) {
+            problemContentContainer.appendChild(renderContentBlocks(problem.Content, s.assetLoader));
+        }
+
+        // Render problem statement with rich text
+        const stmtEl = this.container.querySelector('#problem-statement-el');
+        stmtEl.innerHTML = renderInlineRichText(problem.Problem_Statement);
+        activateLatex(stmtEl);
+
+        // Render options with rich text
+        const optListEl = this.container.querySelector('#option-list-el');
+        Object.entries(problem.Options).forEach(([key, text]) => {
+            const div = document.createElement('div');
+            div.className = `option-item ${s.selectedOption === key ? 'selected' : ''}`;
+            div.dataset.option = key;
+            div.innerHTML = `<span class="option-key">${key}</span><span class="option-text"></span>`;
+            const textSpan = div.querySelector('.option-text');
+            textSpan.innerHTML = renderInlineRichText(text);
+            activateLatex(textSpan);
+            optListEl.appendChild(div);
+        });
+
         // Option selection
         this.container.querySelectorAll('.option-item').forEach(item => {
             item.addEventListener('click', () => {
                 this.state.selectedOption = item.dataset.option;
-                this.render();
+                this.container.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+                item.classList.add('selected');
+                this.updatePracticeSubmitBtn();
             });
         });
         // Confidence selection
         this.container.querySelectorAll('.confidence-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.state.selectedConfidence = btn.dataset.confidence;
-                this.render();
+                this.container.querySelectorAll('.confidence-btn').forEach(el => el.className = 'confidence-btn');
+                const clsMap = { 'Sure': 'active-sure', 'Semi-Sure': 'active-semisure', 'Doubtful': 'active-doubtful', 'Guess': 'active-guess' };
+                btn.classList.add(clsMap[btn.dataset.confidence]);
+                this.updatePracticeSubmitBtn();
             });
         });
         // Next/Submit
         this.container.querySelector('#btn-next').addEventListener('click', () => this.handlePracticeNext());
+    }
+
+    updatePracticeSubmitBtn() {
+        const btn = this.container.querySelector('#btn-next');
+        if (btn) btn.disabled = !(this.state.selectedOption && this.state.selectedConfidence);
     }
 
     handlePracticeNext() {
@@ -616,17 +740,14 @@ class MCQApp {
                 </div>
 
                 <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem;">CORRECTIVE MODE</div>
-                <div class="problem-statement" style="font-size:1.05rem;font-weight:600;margin-bottom:1rem;line-height:1.5;">
-                    ${escapeHtml(problem.Problem_Statement)}
+
+                <div id="context-group-container"></div>
+                <div id="problem-content-container"></div>
+
+                <div class="problem-statement" style="font-size:1.05rem;font-weight:600;margin-bottom:1rem;line-height:1.5;" id="problem-statement-el">
                 </div>
 
-                <div class="option-list">
-                    ${Object.entries(problem.Options).map(([key, text]) => `
-                        <div class="option-item ${s.selectedOption === key ? 'selected' : ''}" data-option="${key}">
-                            <span class="option-key">${key}</span>
-                            <span class="option-text">${escapeHtml(text)}</span>
-                        </div>
-                    `).join('')}
+                <div class="option-list" id="option-list-el">
                 </div>
 
                 <h3>Confidence Level</h3>
@@ -646,14 +767,61 @@ class MCQApp {
             </div>
         `;
 
+        // Render context group
+        const ctxInfo = this.getContextForProblem(s.currentProblemIndex % s.problemQueue.length, s.problemQueue);
+        const ctxContainer = this.container.querySelector('#context-group-container');
+        if (ctxInfo) {
+            ctxContainer.appendChild(renderContextGroup(ctxInfo.group, ctxInfo.isFirst, s.assetLoader));
+        }
+
+        // Render problem-level Content
+        const problemContentContainer = this.container.querySelector('#problem-content-container');
+        if (problem.Content && problem.Content.length > 0) {
+            problemContentContainer.appendChild(renderContentBlocks(problem.Content, s.assetLoader));
+        }
+
+        // Render problem statement with rich text
+        const stmtEl = this.container.querySelector('#problem-statement-el');
+        stmtEl.innerHTML = renderInlineRichText(problem.Problem_Statement);
+        activateLatex(stmtEl);
+
+        // Render options with rich text
+        const optListEl = this.container.querySelector('#option-list-el');
+        Object.entries(problem.Options).forEach(([key, text]) => {
+            const div = document.createElement('div');
+            div.className = `option-item ${s.selectedOption === key ? 'selected' : ''}`;
+            div.dataset.option = key;
+            div.innerHTML = `<span class="option-key">${key}</span><span class="option-text"></span>`;
+            const textSpan = div.querySelector('.option-text');
+            textSpan.innerHTML = renderInlineRichText(text);
+            activateLatex(textSpan);
+            optListEl.appendChild(div);
+        });
+
         this.container.querySelectorAll('.option-item').forEach(item => {
-            item.addEventListener('click', () => { this.state.selectedOption = item.dataset.option; this.render(); });
+            item.addEventListener('click', () => {
+                this.state.selectedOption = item.dataset.option;
+                this.container.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+                item.classList.add('selected');
+                this.updateCorrectiveSubmitBtn();
+            });
         });
         this.container.querySelectorAll('.confidence-btn').forEach(btn => {
-            btn.addEventListener('click', () => { this.state.selectedConfidence = btn.dataset.confidence; this.render(); });
+            btn.addEventListener('click', () => {
+                this.state.selectedConfidence = btn.dataset.confidence;
+                this.container.querySelectorAll('.confidence-btn').forEach(el => el.className = 'confidence-btn');
+                const clsMap = { 'Sure': 'active-sure', 'Semi-Sure': 'active-semisure', 'Doubtful': 'active-doubtful', 'Guess': 'active-guess' };
+                btn.classList.add(clsMap[btn.dataset.confidence]);
+                this.updateCorrectiveSubmitBtn();
+            });
         });
         this.container.querySelector('#btn-corrective-submit').addEventListener('click', () => this.handleCorrectiveSubmit());
         this.container.querySelector('#btn-exit-corrective').addEventListener('click', () => this.correctiveComplete());
+    }
+
+    updateCorrectiveSubmitBtn() {
+        const btn = this.container.querySelector('#btn-corrective-submit');
+        if (btn) btn.disabled = !(this.state.selectedOption && this.state.selectedConfidence);
     }
 
     handleCorrectiveSubmit() {
@@ -692,10 +860,13 @@ class MCQApp {
                 fb.innerHTML = `
                     <div class="feedback-incorrect">
                         <div class="feedback-title">Incorrect — Correct answer: ${problem.Answer.Correct_Option}</div>
-                        <div>${escapeHtml(problem.Answer.Explanation)}</div>
+                        <div class="feedback-explanation"></div>
                     </div>
                     <button class="btn btn-primary mt-1" id="btn-corrective-continue">Continue</button>
                 `;
+                const explEl = fb.querySelector('.feedback-explanation');
+                explEl.innerHTML = renderInlineRichText(problem.Answer.Explanation);
+                activateLatex(explEl);
                 fb.querySelector('#btn-corrective-continue').addEventListener('click', () => {
                     s.currentProblemIndex = (s.currentProblemIndex + 1) % s.problemQueue.length;
                     s.selectedOption = null;
@@ -860,21 +1031,11 @@ class MCQApp {
 
                 <div class="review-card">
                     <div class="category-header">${item.categoryLabel} ${this.confidenceBadge(item.Confidence)}</div>
-                    <div class="problem-statement">${escapeHtml(item.Problem_Statement)}</div>
-                    <div class="option-list">
-                        ${Object.entries(item.Options).map(([key, text]) => {
-                            let cls = '';
-                            if (key === item.Correct_Option) cls = 'correct';
-                            else if (key === item.Selected_Option && key !== item.Correct_Option) cls = 'incorrect';
-                            return `<div class="option-item ${cls}" style="cursor:default;">
-                                <span class="option-key">${key}</span>
-                                <span class="option-text">${escapeHtml(text)}</span>
-                                ${key === item.Selected_Option ? '<span class="badge badge-semisure">Your Answer</span>' : ''}
-                                ${key === item.Correct_Option ? '<span class="badge badge-sure">Correct</span>' : ''}
-                            </div>`;
-                        }).join('')}
-                    </div>
-                    <div class="explanation"><strong>Explanation:</strong> ${escapeHtml(item.Explanation)}</div>
+                    <div id="review-context-container"></div>
+                    <div id="review-problem-content"></div>
+                    <div class="problem-statement" id="review-stmt"></div>
+                    <div class="option-list" id="review-options"></div>
+                    <div class="explanation" id="review-explanation"><strong>Explanation:</strong> <span id="review-expl-text"></span></div>
                 </div>
 
                 <div class="btn-group mt-2">
@@ -887,6 +1048,51 @@ class MCQApp {
                 </div>
             </div>
         `;
+
+        // Render context group for review item
+        const reviewProblem = this.state.selectedSet.Problems.find(p => p.Problem_ID === item.Problem_ID);
+        if (reviewProblem) {
+            const ctxContainer = this.container.querySelector('#review-context-container');
+            if (reviewProblem.Context_Group && this.state.selectedSet.Context_Groups) {
+                const group = this.state.selectedSet.Context_Groups.find(cg => cg.Group_ID === reviewProblem.Context_Group);
+                if (group) {
+                    ctxContainer.appendChild(renderContextGroup(group, false, this.state.assetLoader));
+                }
+            }
+            // Render problem-level Content
+            const probContentEl = this.container.querySelector('#review-problem-content');
+            if (reviewProblem.Content && reviewProblem.Content.length > 0) {
+                probContentEl.appendChild(renderContentBlocks(reviewProblem.Content, this.state.assetLoader));
+            }
+        }
+
+        // Render problem statement with rich text
+        const stmtEl = this.container.querySelector('#review-stmt');
+        stmtEl.innerHTML = renderInlineRichText(item.Problem_Statement);
+        activateLatex(stmtEl);
+
+        // Render options with rich text
+        const optEl = this.container.querySelector('#review-options');
+        Object.entries(item.Options).forEach(([key, text]) => {
+            let cls = '';
+            if (key === item.Correct_Option) cls = 'correct';
+            else if (key === item.Selected_Option && key !== item.Correct_Option) cls = 'incorrect';
+            const div = document.createElement('div');
+            div.className = `option-item ${cls}`;
+            div.style.cursor = 'default';
+            div.innerHTML = `<span class="option-key">${key}</span><span class="option-text"></span>
+                ${key === item.Selected_Option ? '<span class="badge badge-semisure">Your Answer</span>' : ''}
+                ${key === item.Correct_Option ? '<span class="badge badge-sure">Correct</span>' : ''}`;
+            const textSpan = div.querySelector('.option-text');
+            textSpan.innerHTML = renderInlineRichText(text);
+            activateLatex(textSpan);
+            optEl.appendChild(div);
+        });
+
+        // Render explanation with rich text
+        const explEl = this.container.querySelector('#review-expl-text');
+        explEl.innerHTML = renderInlineRichText(item.Explanation);
+        activateLatex(explEl);
 
         const prevBtn = this.container.querySelector('#btn-review-prev');
         if (prevBtn) prevBtn.addEventListener('click', () => { this.moveFlatReviewIndex(-1); this.render(); });
@@ -979,17 +1185,13 @@ class MCQApp {
                     <span class="progress-text">Remaining: ${s.reinforcementQueue.length}</span>
                 </div>
 
-                <div class="problem-statement" style="font-size:1.05rem;font-weight:600;margin-bottom:1rem;line-height:1.5;">
-                    ${escapeHtml(problem.Problem_Statement)}
+                <div id="reinf-context-container"></div>
+                <div id="reinf-problem-content"></div>
+
+                <div class="problem-statement" style="font-size:1.05rem;font-weight:600;margin-bottom:1rem;line-height:1.5;" id="reinf-stmt">
                 </div>
 
-                <div class="option-list">
-                    ${Object.entries(problem.Options).map(([key, text]) => `
-                        <div class="option-item ${s.reinforcementSelectedOption === key ? 'selected' : ''}" data-option="${key}">
-                            <span class="option-key">${key}</span>
-                            <span class="option-text">${escapeHtml(text)}</span>
-                        </div>
-                    `).join('')}
+                <div class="option-list" id="reinf-options">
                 </div>
 
                 <div id="reinf-feedback"></div>
@@ -1005,11 +1207,46 @@ class MCQApp {
             </div>
         `;
 
+        // Render context group (always collapsible in reinforcement)
+        if (problem.Context_Group && s.selectedSet.Context_Groups) {
+            const group = s.selectedSet.Context_Groups.find(cg => cg.Group_ID === problem.Context_Group);
+            if (group) {
+                this.container.querySelector('#reinf-context-container')
+                    .appendChild(renderContextGroup(group, false, s.assetLoader));
+            }
+        }
+        // Render problem-level Content
+        if (problem.Content && problem.Content.length > 0) {
+            this.container.querySelector('#reinf-problem-content')
+                .appendChild(renderContentBlocks(problem.Content, s.assetLoader));
+        }
+
+        // Problem statement with rich text
+        const stmtEl = this.container.querySelector('#reinf-stmt');
+        stmtEl.innerHTML = renderInlineRichText(problem.Problem_Statement);
+        activateLatex(stmtEl);
+
+        // Options with rich text
+        const optEl = this.container.querySelector('#reinf-options');
+        Object.entries(problem.Options).forEach(([key, text]) => {
+            const div = document.createElement('div');
+            div.className = `option-item ${s.reinforcementSelectedOption === key ? 'selected' : ''}`;
+            div.dataset.option = key;
+            div.innerHTML = `<span class="option-key">${key}</span><span class="option-text"></span>`;
+            const textSpan = div.querySelector('.option-text');
+            textSpan.innerHTML = renderInlineRichText(text);
+            activateLatex(textSpan);
+            optEl.appendChild(div);
+        });
+
         if (!s.reinforcementFeedback) {
             this.container.querySelectorAll('.option-item').forEach(item => {
                 item.addEventListener('click', () => {
                     s.reinforcementSelectedOption = item.dataset.option;
-                    this.render();
+                    this.container.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+                    item.classList.add('selected');
+                    const btn = this.container.querySelector('#btn-reinf-submit');
+                    if (btn) btn.disabled = false;
                 });
             });
             this.container.querySelector('#btn-reinf-submit').addEventListener('click', () => {
@@ -1023,9 +1260,12 @@ class MCQApp {
                 fb.innerHTML = `
                     <div class="feedback-incorrect">
                         <div class="feedback-title">Incorrect — Correct answer: ${problem.Answer.Correct_Option}</div>
-                        <div>${escapeHtml(problem.Answer.Explanation)}</div>
+                        <div class="feedback-explanation"></div>
                     </div>
                 `;
+                const explEl = fb.querySelector('.feedback-explanation');
+                explEl.innerHTML = renderInlineRichText(problem.Answer.Explanation);
+                activateLatex(explEl);
             }
             this.container.querySelector('#btn-reinf-continue').addEventListener('click', () => {
                 s.reinforcementFeedback = null;
@@ -1336,10 +1576,12 @@ class MCQApp {
             completedAttempts: this.state.completedAttempts,
             problemSets: this.state.problemSets,
             selectedSet: this.state.selectedSet,
+            assetLoader: this.state.assetLoader,
         };
         this.state = {
             problemSets: preserved.problemSets,
             selectedSet: preserved.selectedSet,
+            assetLoader: preserved.assetLoader,
             mode: 'Straight',
             chunkSize: 'All',
             priorAttempt: null,
@@ -1371,9 +1613,11 @@ class MCQApp {
 
     clearAllMemory() {
         if (!confirm('This will clear all loaded problem sets and completed attempts. Continue?')) return;
+        if (this.state.assetLoader) this.state.assetLoader.revokeAll();
         this.state.completedAttempts = [];
         this.state.problemSets = [];
         this.state.selectedSet = null;
+        this.state.assetLoader = null;
         this.state.longitudinalAttempts = [];
         this.persistToStorage();
         this.navigate('upload');

@@ -1,6 +1,6 @@
 # MCQ Tool — Data Model & Entity Relationship Diagram
 
-> Derived from: Data Model Requirements (DM-1 to DM-5), Sample JSON files
+> Derived from: Data Model Requirements (DM-0 to DM-5), Sample JSON files, `1_Idea/3_Context_Groups_Rich_Content.md`
 
 ---
 
@@ -8,6 +8,7 @@
 
 ```mermaid
 erDiagram
+    PROBLEM_SET ||--o{ CONTEXT_GROUP : has
     PROBLEM_SET ||--o{ PROBLEM : contains
     PROBLEM_SET {
         string ID
@@ -16,10 +17,27 @@ erDiagram
         string Source_Content
         string[] Concepts_Covered
         string Creation_Date
+        int Number_of_Problems
     }
 
+    CONTEXT_GROUP ||--o{ CONTENT_BLOCK : contains
+    CONTEXT_GROUP {
+        string Group_ID
+        string Title
+    }
+
+    CONTENT_BLOCK {
+        string type
+        string value
+        string alt
+        string language
+    }
+
+    PROBLEM }o--o| CONTEXT_GROUP : references
+    PROBLEM ||--o{ CONTENT_BLOCK : has_own
     PROBLEM {
-        string Problem_Number
+        int Problem_ID
+        string Context_Group
         string Problem_Statement
         object Options
         string Correct_Option
@@ -91,7 +109,7 @@ erDiagram
 
 ### 2.1 Problem Set (Input Data)
 
-The core content entity. Loaded from JSON file at session start. Immutable during session.
+The core content entity. Loaded from JSON/ZIP/directory at session start. Immutable during session.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -101,22 +119,47 @@ The core content entity. Loaded from JSON file at session start. Immutable durin
 | Source_Content | String | Chapter/topic/reference |
 | Concepts_Covered | String[] | List of concept labels |
 | Creation_Date | String | ISO date |
+| Number_of_Problems | Integer | Count of problems (informational) |
+| Context_Groups | ContextGroup[] | Shared context blocks referenced by problems |
 | Problems | Problem[] | Array of Problem entities |
 
-### 2.2 Problem
+### 2.2 Context Group
+
+Shared rich content displayed above a chain of related problems.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| Group_ID | String | Unique within the set (e.g., "CG1") |
+| Title | String | Human-readable label |
+| Content | ContentBlock[] | Ordered array of rich content blocks |
+
+### 2.3 Content Block
+
+A typed unit of rich content used in Context Groups and problem-level Content arrays.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| type | String | One of: `text`, `markdown`, `latex`, `image`, `code` |
+| value | String | The content payload |
+| alt | String | Alt text (for `image` type, optional) |
+| language | String | Programming language (for `code` type, optional) |
+
+### 2.4 Problem
 
 Individual question within a Problem Set.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| Problem_Number | String | Unique within the set (e.g., "P1") |
-| Problem_Statement | String | Question text |
-| Options | Object | Key-value pairs: {"A": "...", "B": "...", ...} |
-| Correct_Option | String | Key of the correct option (e.g., "B") |
-| Explanation | String | Reasoning for correct answer |
+| Problem_ID | Integer | Unique within the set |
+| Context_Group | String \| null | References Context_Group.Group_ID (null = standalone) |
 | Concept_Map | String | Concept this problem tests |
+| Content | ContentBlock[] | Problem-specific rich content (optional) |
+| Problem_Statement | String | Question text (supports Markdown + inline LaTeX) |
+| Options | Object | Key-value pairs: {"A": "...", ...} (values support Markdown + inline LaTeX) |
+| Correct_Option | String | Key of the correct option |
+| Explanation | String | Reasoning (supports Markdown + inline LaTeX) |
 
-### 2.3 Attempt Record (Output Data)
+### 2.5 Attempt Record (Output Data)
 
 Generated during a practice session. Contains all responses and computed analytics.
 
@@ -129,18 +172,18 @@ Generated during a practice session. Contains all responses and computed analyti
 | Responses | Response[] | Array of per-problem responses |
 | Analysis_Report | Object | Computed statistics and feedback |
 
-### 2.4 Response
+### 2.6 Response
 
 Per-problem attempt record.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| Problem_Number | String | References Problem.Problem_Number |
+| Problem_ID | Integer | References Problem.Problem_ID |
 | Selected_Option | String | Learner's chosen option key |
 | Confidence | String | One of: "Sure", "SemiSure", "Doubtful", "Guess" |
 | time_seconds | Float | Seconds spent on this problem |
 
-### 2.5 Confidence Enum
+### 2.7 Confidence Enum
 
 ```
 Confidence ∈ { "Sure", "SemiSure", "Doubtful", "Guess" }
@@ -214,11 +257,14 @@ Confidence_Distribution_In_Correct = {
 ```mermaid
 flowchart LR
     subgraph INPUT
-        PS_JSON[Problem Set JSON file]
+        PS_JSON[JSON file]
+        PS_ZIP[ZIP archive]
+        PS_DIR[Directory]
     end
 
     subgraph IN_MEMORY
-        PS[Problem Set store]
+        PS[Problem Set store + Context Groups]
+        ASSETS[Asset Store — images as Blob URLs]
         SS[Session State]
         AR[Attempt Record]
     end
@@ -234,7 +280,12 @@ flowchart LR
     end
 
     PS_JSON -->|Upload & Parse| PS
+    PS_ZIP -->|Extract Problems.json + assets/| PS
+    PS_ZIP -->|Extract assets/| ASSETS
+    PS_DIR -->|Read Problems.json + assets/| PS
+    PS_DIR -->|Read assets/| ASSETS
     PS -->|Feed to| SS
+    ASSETS -->|Resolve image paths| SS
     SS -->|Responses collected| AR
     AR -->|Serialize & Download| AT_JSON
 
@@ -246,11 +297,12 @@ flowchart LR
 
 ### 4.1 Lifecycle Rules
 
-1. **Problem Set** — Loaded once, read-only throughout session
-2. **Session State** — Created at setup, mutated during practice, discarded on session end
-3. **Attempt Record** — Built incrementally during practice, finalized on submission, immutable after finalization
-4. **Historical Attempts** — Loaded on-demand in longitudinal screen, read-only
-5. **No implicit persistence** — All data lost on page close unless explicitly exported
+1. **Problem Set** — Loaded once (from JSON, ZIP, or directory), read-only throughout session
+2. **Asset Store** — Images/files extracted from ZIP or directory as Blob URLs, read-only, revoked on session end
+3. **Session State** — Created at setup, mutated during practice, discarded on session end
+4. **Attempt Record** — Built incrementally during practice, finalized on submission, immutable after finalization
+5. **Historical Attempts** — Loaded on-demand in longitudinal screen, read-only
+6. **No implicit persistence** — All data lost on page close unless explicitly exported
 
 ---
 
@@ -258,11 +310,21 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A[JSON file uploaded] --> B{typeof root}
-    B -->|Array| C[Multi-Set format]
-    B -->|Object| D{has 'Problems' key?}
-    D -->|Yes| E[Single-Set format]
-    D -->|No| F[Invalid format — reject]
+    A[Upload received] --> B{Upload type?}
+    B -->|.json file| C[Read JSON]
+    B -->|.zip file| D[Extract with JSZip]
+    B -->|Directory| E[Read via directory picker]
+    D --> F[Locate Problems.json in archive root]
+    E --> G[Locate Problems.json in directory]
+    D --> H[Extract assets/ → Asset Store]
+    E --> I[Read assets/ → Asset Store]
+    F --> J{typeof root}
+    G --> J
+    C --> J
+    J -->|Array| K[Multi-Set format]
+    J -->|Object| L{has 'Problems' key?}
+    L -->|Yes| M[Single-Set format]
+    L -->|No| N[Invalid format — reject]
     C --> G[Iterate: validate each element as Problem Set]
     E --> H[Validate as Problem Set]
 ```

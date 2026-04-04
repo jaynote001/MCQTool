@@ -24,9 +24,13 @@ The application consists of the following screens, visited in sequence:
 
 ## UI-2: S1 — Upload & Select Screen
 
-### UI-2.1: File Upload
-- A file upload control accepting `.json` files.
-- On upload, the system validates the file structure (FR-1.6).
+### UI-2.1: File / Directory Upload
+- The upload area shall accept three input methods:
+  1. **JSON file** — standard file picker accepting `.json` files.
+  2. **ZIP archive** — file picker accepting `.zip` files.
+  3. **Directory** — a “Select Folder” button using the browser’s directory picker (File System Access API / `<input webkitdirectory>`).
+- The system shall auto-detect the upload type and locate `Problems.json` accordingly.
+- On upload, the system validates the file structure (FR-1.7).
 - On validation failure, display an error message describing what is wrong.
 
 ### UI-2.2: Problem Set List (Multi-Set Files)
@@ -67,9 +71,17 @@ The application consists of the following screens, visited in sequence:
 ## UI-4: S3 — Practice Screen
 
 ### UI-4.1: Problem Display
-- Problem Statement displayed prominently.
-- Options listed vertically with radio buttons (A, B, C, D).
-- Only one option selectable at a time.
+- **Context Group block** (if the problem has a `Context_Group`):
+  - Rendered above the problem in a distinct card/section.
+  - Shown in full for the first problem in the group.
+  - Collapsible (expanded by default) for subsequent problems in the same group.
+- **Problem-level content** (if the problem has a `Content` array):
+  - Rendered between the context block and the problem statement.
+- **Problem Statement** displayed prominently, with Markdown and inline LaTeX rendered.
+- **Options** listed vertically with radio buttons (A, B, C, D).
+  - Option text supports Markdown and inline LaTeX.
+  - Only one option selectable at a time.
+- **Images** from `assets/` rendered inline at their natural size with alt text.
 
 ### UI-4.2: Confidence Selector
 - Four clearly labelled buttons or radio group:
@@ -134,12 +146,14 @@ The application consists of the following screens, visited in sequence:
 
 ### UI-6.2: Problem Review Card
 - For each problem, display:
-  - Problem Statement
-  - All Options:
+  - Context Group content (if applicable) — collapsible
+  - Problem-level content (if applicable)
+  - Problem Statement (Markdown/LaTeX rendered)
+  - All Options (Markdown/LaTeX rendered):
     - Learner's selected option highlighted (e.g. blue background)
     - Correct option highlighted (e.g. green background)
     - If learner was wrong, their selection additionally marked (e.g. red)
-  - Full Explanation text
+  - Full Explanation text (Markdown/LaTeX rendered)
   - Confidence tag badge (S / SS / D / G)
 
 ### UI-6.3: Navigation

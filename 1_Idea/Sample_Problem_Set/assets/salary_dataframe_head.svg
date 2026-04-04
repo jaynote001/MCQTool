@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="200" viewBox="0 0 480 200">
+  <rect width="480" height="200" fill="#f8fafc"/>
+  <!-- Title -->
+  <text x="240" y="22" font-size="14" fill="#1e293b" font-weight="bold" text-anchor="middle">Employee Salary Data — First 5 Rows</text>
+  <!-- Table header -->
+  <rect x="30" y="35" width="420" height="28" fill="#1e293b" rx="4" ry="4"/>
+  <text x="55" y="54" font-family="monospace" font-size="11" fill="white" font-weight="bold">emp_id</text>
+  <text x="135" y="54" font-family="monospace" font-size="11" fill="white" font-weight="bold">dept</text>
+  <text x="225" y="54" font-family="monospace" font-size="11" fill="white" font-weight="bold">salary</text>
+  <text x="310" y="54" font-family="monospace" font-size="11" fill="white" font-weight="bold">experience</text>
+  <text x="415" y="54" font-family="monospace" font-size="11" fill="white" font-weight="bold">age</text>
+  <!-- Row 1 -->
+  <rect x="30" y="63" width="420" height="24" fill="#ffffff"/>
+  <text x="55" y="80" font-family="monospace" font-size="11" fill="#1e293b">1001</text>
+  <text x="135" y="80" font-family="monospace" font-size="11" fill="#1e293b">Sales</text>
+  <text x="225" y="80" font-family="monospace" font-size="11" fill="#1e293b">58,200</text>
+  <text x="330" y="80" font-family="monospace" font-size="11" fill="#1e293b">5</text>
+  <text x="420" y="80" font-family="monospace" font-size="11" fill="#1e293b">32</text>
+  <!-- Row 2 -->
+  <rect x="30" y="87" width="420" height="24" fill="#f1f5f9"/>
+  <text x="55" y="104" font-family="monospace" font-size="11" fill="#1e293b">1002</text>
+  <text x="135" y="104" font-family="monospace" font-size="11" fill="#1e293b">Engg</text>
+  <text x="225" y="104" font-family="monospace" font-size="11" fill="#1e293b">92,400</text>
+  <text x="330" y="104" font-family="monospace" font-size="11" fill="#1e293b">12</text>
+  <text x="420" y="104" font-family="monospace" font-size="11" fill="#1e293b">38</text>
+  <!-- Row 3 -->
+  <rect x="30" y="111" width="420" height="24" fill="#ffffff"/>
+  <text x="55" y="128" font-family="monospace" font-size="11" fill="#1e293b">1003</text>
+  <text x="135" y="128" font-family="monospace" font-size="11" fill="#1e293b">HR</text>
+  <text x="225" y="128" font-family="monospace" font-size="11" fill="#1e293b">47,800</text>
+  <text x="330" y="128" font-family="monospace" font-size="11" fill="#1e293b">3</text>
+  <text x="420" y="128" font-family="monospace" font-size="11" fill="#1e293b">28</text>
+  <!-- Row 4 -->
+  <rect x="30" y="135" width="420" height="24" fill="#f1f5f9"/>
+  <text x="55" y="152" font-family="monospace" font-size="11" fill="#1e293b">1004</text>
+  <text x="135" y="152" font-family="monospace" font-size="11" fill="#1e293b">Sales</text>
+  <text x="225" y="152" font-family="monospace" font-size="11" fill="#1e293b">63,100</text>
+  <text x="330" y="152" font-family="monospace" font-size="11" fill="#1e293b">7</text>
+  <text x="420" y="152" font-family="monospace" font-size="11" fill="#1e293b">35</text>
+  <!-- Row 5 -->
+  <rect x="30" y="159" width="420" height="24" fill="#ffffff" rx="0" ry="0"/>
+  <text x="55" y="176" font-family="monospace" font-size="11" fill="#1e293b">1005</text>
+  <text x="135" y="176" font-family="monospace" font-size="11" fill="#1e293b">Engg</text>
+  <text x="225" y="176" font-family="monospace" font-size="11" fill="#1e293b">105,600</text>
+  <text x="330" y="176" font-family="monospace" font-size="11" fill="#1e293b">15</text>
+  <text x="420" y="176" font-family="monospace" font-size="11" fill="#1e293b">42</text>
+  <!-- Border -->
+  <rect x="30" y="35" width="420" height="148" fill="none" stroke="#e2e8f0" stroke-width="1" rx="4" ry="4"/>
+  <text x="240" y="198" font-size="11" fill="#64748b" text-anchor="middle" font-style="italic">10,000 rows × 5 columns</text>
+</svg>

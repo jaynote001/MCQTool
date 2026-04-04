@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300" viewBox="0 0 480 300">
+  <rect width="480" height="300" fill="#f8fafc"/>
+  <!-- Axes -->
+  <line x1="60" y1="250" x2="440" y2="250" stroke="#1e293b" stroke-width="2"/>
+  <line x1="60" y1="250" x2="60" y2="30" stroke="#1e293b" stroke-width="2"/>
+  <!-- Y-axis label -->
+  <text x="20" y="140" font-size="12" fill="#64748b" transform="rotate(-90 20 140)" text-anchor="middle">Density</text>
+  <!-- X-axis label -->
+  <text x="250" y="285" font-size="12" fill="#64748b" text-anchor="middle">Salary (in thousands)</text>
+  <!-- Title -->
+  <text x="250" y="22" font-size="14" fill="#1e293b" font-weight="bold" text-anchor="middle">Salary Distribution — Histogram with KDE Overlay</text>
+  <!-- Histogram bars -->
+  <rect x="70" y="220" width="35" height="30" fill="#3b82f6" opacity="0.4"/>
+  <rect x="110" y="170" width="35" height="80" fill="#3b82f6" opacity="0.4"/>
+  <rect x="150" y="100" width="35" height="150" fill="#3b82f6" opacity="0.4"/>
+  <rect x="190" y="60" width="35" height="190" fill="#3b82f6" opacity="0.4"/>
+  <rect x="230" y="80" width="35" height="170" fill="#3b82f6" opacity="0.4"/>
+  <rect x="270" y="120" width="35" height="130" fill="#3b82f6" opacity="0.4"/>
+  <rect x="310" y="170" width="35" height="80" fill="#3b82f6" opacity="0.4"/>
+  <rect x="350" y="210" width="35" height="40" fill="#3b82f6" opacity="0.4"/>
+  <rect x="390" y="230" width="35" height="20" fill="#3b82f6" opacity="0.4"/>
+  <!-- KDE curve -->
+  <path d="M 70 245 C 90 240, 100 220, 127 185 C 150 150, 160 120, 187 70 C 210 45, 220 55, 247 90 C 270 120, 280 130, 307 175 C 330 210, 350 225, 387 240 C 410 248, 420 249, 430 250"
+        fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/>
+  <!-- Legend -->
+  <rect x="340" y="35" width="12" height="12" fill="#3b82f6" opacity="0.4"/>
+  <text x="358" y="46" font-size="11" fill="#64748b">Histogram</text>
+  <line x1="340" y1="60" x2="352" y2="60" stroke="#ef4444" stroke-width="3"/>
+  <text x="358" y="64" font-size="11" fill="#64748b">KDE</text>
+</svg>

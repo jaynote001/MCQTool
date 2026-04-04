@@ -1,6 +1,4 @@
-// sampleData.js — Embedded sample JSON files for quick access on the upload screen
-
-export const SAMPLE_PROBLEM_SET = {
+{
     "ID": "DV001",
     "Title": "Data Visualization Problem Set",
     "Source": "ChatGPT",
@@ -17,7 +15,8 @@ export const SAMPLE_PROBLEM_SET = {
             "Group_ID": "CG1",
             "Title": "Employee salary dataset",
             "Content": [
-                { "type": "markdown", "value": "A company has a DataFrame `df` with **10,000 employee records**. The key columns are: `employee_id`, `department`, `salary`, `years_experience`." },
+                { "type": "markdown", "value": "A company has a DataFrame `df` with **10,000 employee records**. The key columns are:" },
+                { "type": "image", "value": "assets/salary_dataframe_head.svg", "alt": "First 5 rows of the salary DataFrame" },
                 { "type": "markdown", "value": "You are asked to explore the `salary` column, which contains continuous numeric values ranging from $25{,}000$ to $120{,}000$." }
             ]
         },
@@ -26,7 +25,8 @@ export const SAMPLE_PROBLEM_SET = {
             "Title": "Histogram with KDE output",
             "Content": [
                 { "type": "markdown", "value": "A colleague ran the following code and got the output below:" },
-                { "type": "code", "value": "sns.histplot(data=df, x='salary', kde=True)\nplt.show()", "language": "python" }
+                { "type": "code", "value": "sns.histplot(data=df, x='salary', kde=True)\nplt.show()", "language": "python" },
+                { "type": "image", "value": "assets/salary_histogram_kde.svg", "alt": "Histogram of salary with KDE curve overlaid" }
             ]
         }
     ],
@@ -67,7 +67,7 @@ export const SAMPLE_PROBLEM_SET = {
             "Problem_ID": 3,
             "Context_Group": "CG2",
             "Concept_Map": "Kernel Density Estimate (KDE)",
-            "Problem_Statement": "Looking at the output, the KDE curve peaks around $60{,}000$. What does the height of the curve at that point represent?",
+            "Problem_Statement": "Looking at the output, the red KDE curve peaks around $60{,}000$. What does the height of the curve at that point represent?",
             "Options": {
                 "A": "The number of employees earning exactly $60{,}000$",
                 "B": "The estimated probability density at salary = $60{,}000$",
@@ -99,78 +99,4 @@ export const SAMPLE_PROBLEM_SET = {
             }
         }
     ]
-};
-
-export const SAMPLE_PROBLEM_SETS = [SAMPLE_PROBLEM_SET];
-
-export const SAMPLE_ATTEMPT = {
-    "Problem_Set_ID": "DV001",
-    "ID": "20240612_143022",
-    "Attempt_Date": "2024-06-12",
-    "Attempt": [
-        {
-            "Problem_ID": 1,
-            "Response": {
-                "Selected_Option": "C",
-                "Confidence_Level": "Sure"
-            },
-            "time_seconds": 5
-        },
-        {
-            "Problem_ID": 2,
-            "Response": {
-                "Selected_Option": "B",
-                "Confidence_Level": "Semi-Sure"
-            },
-            "time_seconds": 7
-        },
-        {
-            "Problem_ID": 3,
-            "Response": {
-                "Selected_Option": "A",
-                "Confidence_Level": "Doubtful"
-            },
-            "time_seconds": 12
-        },
-        {
-            "Problem_ID": 4,
-            "Response": {
-                "Selected_Option": "B",
-                "Confidence_Level": "Sure"
-            },
-            "time_seconds": 8
-        }
-    ],
-    "Analysis_Report": {
-        "Session_Statistics": {
-            "Total_Questions": 4,
-            "Attempted_Questions": 4,
-            "Total_Correct": 3,
-            "Total_Incorrect": 1,
-            "Total_Accuracy_Percent": 75.0,
-            "Total_Time_Spent_Seconds": 32,
-            "Total_Time_Spent_Minutes": 0.5,
-            "Confidence_Wise_Accuracy": {
-                "Sure": { "Total": 2, "Correct": 2, "Incorrect": 0, "Accuracy_Percent": 100.0 },
-                "Semi-Sure": { "Total": 1, "Correct": 1, "Incorrect": 0, "Accuracy_Percent": 100.0 },
-                "Doubtful": { "Total": 1, "Correct": 0, "Incorrect": 1, "Accuracy_Percent": 0.0 },
-                "Guess": { "Total": 0, "Correct": 0, "Incorrect": 0, "Accuracy_Percent": null }
-            },
-            "Confidence_Distribution_In_Correct": {
-                "Sure_Percent": 66.7,
-                "Semi-Sure_Percent": 33.3,
-                "Doubtful_Percent": 0.0,
-                "Guess_Percent": 0.0
-            }
-        },
-        "Feedback_Review_Order": [
-            { "Priority": 1, "Category": "Correct-Semi-Sure", "Problem_IDs": [2] },
-            { "Priority": 2, "Category": "Correct-Doubtful", "Problem_IDs": [] },
-            { "Priority": 3, "Category": "Incorrect-Sure", "Problem_IDs": [] },
-            { "Priority": 4, "Category": "Incorrect-Semi-Sure", "Problem_IDs": [] },
-            { "Priority": 5, "Category": "Incorrect-Doubtful", "Problem_IDs": [3] },
-            { "Priority": 6, "Category": "Correct-Guess", "Problem_IDs": [] },
-            { "Priority": 7, "Category": "Incorrect-Guess", "Problem_IDs": [] }
-        ]
-    }
-};
+}

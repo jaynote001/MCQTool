@@ -6,30 +6,43 @@
 
 ## FR-1: Problem Set Loading
 
-### FR-1.1: Upload Problem Set File
-- The system shall allow the learner to upload a Problem Set JSON file from their local device.
+### FR-1.1: Upload Problem Set
+- The system shall allow the learner to upload a Problem Set from their local device.
+- The system shall support three upload methods:
+  1. **JSON file** — a single `.json` file (no images).
+  2. **ZIP archive** — a `.zip` containing a `Problems.json` and an optional `assets/` folder.
+  3. **Directory** — a folder selected via the browser's directory picker containing `Problems.json` and an optional `assets/` folder.
 
-### FR-1.2: Single-Set File Support
+### FR-1.2: Problem Set Directory Convention
+- The canonical input file consumed by the application shall be named **`Problems.json`**.
+- When a zip or directory is uploaded, the system shall locate `Problems.json` at the root of the archive/directory.
+- Static assets (images, charts, SVGs) shall reside in an `assets/` folder alongside `Problems.json`.
+- Image paths in the JSON shall be interpreted as relative to `Problems.json` (e.g., `assets/chart.svg`).
+
+### FR-1.3: Single-Set File Support
 - The system shall accept a JSON file containing a single Problem Set as a root object.
-- Reference format: `Sample_Problem_Set.json`
 
-### FR-1.3: Multi-Set File Support
+### FR-1.4: Multi-Set File Support
 - The system shall accept a JSON file containing multiple Problem Sets as a root array.
-- Reference format: `Sample_Problem_Sets.json`
 
-### FR-1.4: Format Auto-Detection
+### FR-1.5: Format Auto-Detection
 - The system shall automatically detect whether the uploaded file is a single-set (object) or multi-set (array) format and handle both seamlessly.
 
-### FR-1.5: Problem Set Selection
+### FR-1.6: Problem Set Selection
 - When a multi-set file is uploaded, the system shall display a list of available Problem Sets.
 - Each entry in the list shall show: **Title**, **Concepts Covered**, and **Problem Count**.
 - The learner shall select one Problem Set to practice.
 
-### FR-1.6: Problem Set Validation
+### FR-1.7: Problem Set Validation
 - The system shall validate that each Problem Set contains the required fields:
   - `ID`, `Title`, `Concepts_Covered`, `Problems[]`
 - The system shall validate that each Problem contains:
   - `Problem_ID`, `Concept_Map`, `Problem_Statement`, `Options`, `Answer.Correct_Option`, `Answer.Explanation`
+- If `Context_Groups` is present, the system shall validate:
+  - Each group has a unique `Group_ID`, a `Title`, and a non-empty `Content` array.
+  - Every `Problem.Context_Group` value (when not `null`) references a valid `Group_ID`.
+- If a `Content` array is present (on a context group or problem), each block shall have a valid `type` (`text`, `markdown`, `latex`, `image`, `code`) and a non-empty `value`.
+- For `image` content blocks referencing local files, the system shall verify the file exists when loaded from a zip or directory.
 - The system shall display a clear error message if validation fails.
 
 ---
@@ -42,6 +55,7 @@
 ### FR-2.2: Jumbled Mode
 - The system shall present problems in a randomized order, single pass.
 - If chunking is active, the full set shall be shuffled first, then chunks carved from the shuffled order.
+- **Context Group–aware shuffling**: Problems that share a `Context_Group` shall stay together as a contiguous block. The system shall shuffle the groups (and standalone problems) while preserving in-group problem order.
 
 ### FR-2.3: Corrective Mode
 - The system shall require the learner to upload **both** a Problem Set JSON **and** a previous Attempt JSON file.
@@ -92,8 +106,10 @@
 
 ### FR-4.1: Problem Display
 - For each problem, the system shall display:
-  - The Problem Statement text.
-  - All Options (A, B, C, D) with radio buttons for selection.
+  - **Context Group content** (if the problem has a `Context_Group`): Rendered once above the first problem in the group and kept visible (or collapsible) for subsequent problems in the same group.
+  - **Problem-level content** (if the problem has a `Content` array): Rendered immediately above the problem statement.
+  - The **Problem Statement** text, with Markdown and inline LaTeX rendered.
+  - All **Options** (A, B, C, D) with radio buttons for selection, with Markdown and inline LaTeX rendered in option text.
 
 ### FR-4.2: Option Selection
 - The learner shall select exactly one option per problem via radio button.
@@ -157,10 +173,12 @@
 
 ### FR-6.2: Review Session — Problem Display
 - For each reviewed problem, the system shall display:
-  - Problem Statement
-  - All Options (with the learner's selected option highlighted)
+  - Context Group content (if applicable) — collapsible
+  - Problem-level content (if applicable)
+  - Problem Statement (with Markdown/LaTeX rendered)
+  - All Options (with Markdown/LaTeX rendered; learner's selected option highlighted)
   - Correct Option (highlighted distinctly from the learner's selection)
-  - Full Explanation/Reasoning from the Problem Set
+  - Full Explanation/Reasoning from the Problem Set (with Markdown/LaTeX rendered)
   - The learner's Confidence Tag for that problem
 
 ### FR-6.3: Review Session — Navigation
@@ -290,3 +308,37 @@
 ### FR-9.3: Corrective Mode Integration
 - The system shall support using Corrective mode (FR-2.3) with any previously exported Attempt JSON file.
 - This enables the cycle: Practice → Export → Correct → Export → Compare.
+
+---
+
+## FR-10: Rich Content Rendering
+
+### FR-10.1: Content Block Rendering
+- The system shall render `Content` block arrays wherever they appear (Context Groups, Problem-level `Content`).
+- Each block shall be rendered according to its `type`:
+
+| Type | Rendering |
+|------|-----------|
+| `text` | Plain text (HTML-escaped) |
+| `markdown` | Markdown → HTML; inline LaTeX `$...$` rendered via KaTeX |
+| `latex` | Display-mode LaTeX `$$...$$` rendered via KaTeX |
+| `image` | `<img>` element. `value` resolved relative to `Problems.json`. `alt` used for accessibility. |
+| `code` | Syntax-highlighted code block. Optional `language` key for highlighting. |
+
+### FR-10.2: Inline Markdown & LaTeX in Text Fields
+- `Problem_Statement`, `Options` values, and `Answer.Explanation` shall be treated as Markdown with inline LaTeX support.
+- Inline LaTeX is denoted by `$...$`; display LaTeX by `$$...$$`.
+
+### FR-10.3: Image Resolution
+- Image `value` paths shall be resolved relative to the `Problems.json` file location.
+- For zip uploads: images are extracted from the archive and referenced by their archive-relative path.
+- For directory uploads: images are read via the File System Access API from the selected directory.
+- For base64 data URIs (`data:image/...`): rendered directly without path resolution.
+
+### FR-10.4: Context Group Display
+- When a problem references a `Context_Group`, the system shall render the group's `Content` blocks above the problem.
+- The context block shall be shown in full above the **first** problem in the group.
+- For subsequent problems in the same group, the context block shall remain visible but be **collapsible** (expanded by default).
+
+### FR-10.5: Problem-Level Content
+- If a problem has its own `Content` array (independent of any context group), it shall be rendered between the context group content (if any) and the problem statement.

@@ -10,6 +10,45 @@ export function shuffle(array) {
     return arr;
 }
 
+/**
+ * Context-group-aware shuffle for Jumbled mode.
+ * Groups problems sharing a Context_Group together, shuffles the groups,
+ * and preserves in-group problem order. Standalone problems (null Context_Group)
+ * are each treated as their own group.
+ * @param {object[]} problems
+ * @returns {object[]} Shuffled problems array
+ */
+export function shuffleWithContextGroups(problems) {
+    const groupMap = new Map(); // Group_ID → [problems]
+    const standalones = [];
+
+    for (const p of problems) {
+        if (p.Context_Group) {
+            if (!groupMap.has(p.Context_Group)) {
+                groupMap.set(p.Context_Group, []);
+            }
+            groupMap.get(p.Context_Group).push(p);
+        } else {
+            standalones.push(p);
+        }
+    }
+
+    // Build units: each group is one unit, each standalone is one unit
+    const units = [];
+    for (const [, groupProblems] of groupMap) {
+        units.push(groupProblems); // Array of problems (preserved order)
+    }
+    for (const p of standalones) {
+        units.push([p]);
+    }
+
+    // Shuffle units
+    const shuffled = shuffle(units);
+
+    // Flatten back into a single array
+    return shuffled.flat();
+}
+
 /** Read a File object as parsed JSON */
 export function readJSONFile(file) {
     return new Promise((resolve, reject) => {
