@@ -164,28 +164,20 @@ class MCQApp {
         const supportsDirectoryPicker = 'showDirectoryPicker' in window;
 
         this.container.innerHTML = `
-            <div class="card">
+            <div class="card upload-card">
                 <h2>Upload Problem Set</h2>
-                <div class="upload-methods">
-                    <div class="file-upload-area" id="upload-area">
-                        <input type="file" id="file-input" accept=".json">
-                        <span class="upload-label">
-                            <strong>Click to upload</strong> or drag &amp; drop a Problem Set JSON file
-                        </span>
-                    </div>
-                    <div class="upload-alt-row">
-                        <div class="file-upload-area upload-area-sm" id="upload-area-zip">
-                            <input type="file" id="file-input-zip" accept=".zip">
-                            <span class="upload-label">
-                                <strong>Upload ZIP</strong> (JSON + assets)
-                            </span>
-                        </div>
-                        ${supportsDirectoryPicker ? `
-                        <button class="btn btn-outline" id="btn-upload-dir">
-                            Upload Folder
-                        </button>
-                        ` : ''}
-                    </div>
+                <div class="upload-btn-row">
+                    <input type="file" id="file-input" accept=".json" hidden>
+                    <button class="btn btn-primary" id="btn-upload-json">Upload JSON</button>
+                    <input type="file" id="file-input-zip" accept=".zip" hidden>
+                    <button class="btn btn-outline" id="btn-upload-zip">Upload ZIP</button>
+                    ${supportsDirectoryPicker ? `
+                    <button class="btn btn-outline" id="btn-upload-dir">Upload Folder</button>
+                    ` : ''}
+                </div>
+                <div class="file-drop-area" id="drop-area">
+                    <div class="drop-icon">&#128449;</div>
+                    <div class="drop-label">Drag &amp; drop a JSON or ZIP file here</div>
                 </div>
                 <div id="upload-error"></div>
                 <div id="set-list-container"></div>
@@ -201,7 +193,7 @@ class MCQApp {
             </div>
             ` : ''}
 
-            <div class="card">
+            <div class="card" style="text-align:center;">
                 <h2>Longitudinal Analysis</h2>
                 <p style="color:var(--text-muted);margin-bottom:0.75rem;">Upload multiple Attempt files to view performance trends over time.</p>
                 <button class="btn btn-outline" id="btn-longitudinal">Open Longitudinal Analysis</button>
@@ -259,15 +251,32 @@ class MCQApp {
             </div>
         `;
 
-        // File upload handlers — JSON
-        const uploadArea = this.container.querySelector('#upload-area');
+        // Upload button handlers
         const fileInput = this.container.querySelector('#file-input');
-        uploadArea.addEventListener('click', () => fileInput.click());
-        uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = 'var(--primary)'; });
-        uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = ''; });
-        uploadArea.addEventListener('drop', (e) => {
+        const fileInputZip = this.container.querySelector('#file-input-zip');
+
+        this.container.querySelector('#btn-upload-json').addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) this.handleProblemSetUpload(fileInput.files[0]);
+        });
+
+        this.container.querySelector('#btn-upload-zip').addEventListener('click', () => fileInputZip.click());
+        fileInputZip.addEventListener('change', () => {
+            if (fileInputZip.files.length) this.handleZipUpload(fileInputZip.files[0]);
+        });
+
+        const dirBtn = this.container.querySelector('#btn-upload-dir');
+        if (dirBtn) {
+            dirBtn.addEventListener('click', () => this.handleDirectoryUpload());
+        }
+
+        // Drag & drop zone
+        const dropArea = this.container.querySelector('#drop-area');
+        dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('drop-active'); });
+        dropArea.addEventListener('dragleave', () => { dropArea.classList.remove('drop-active'); });
+        dropArea.addEventListener('drop', (e) => {
             e.preventDefault();
-            uploadArea.style.borderColor = '';
+            dropArea.classList.remove('drop-active');
             if (e.dataTransfer.files.length) {
                 const file = e.dataTransfer.files[0];
                 if (file.name.endsWith('.zip')) {
@@ -277,25 +286,6 @@ class MCQApp {
                 }
             }
         });
-        fileInput.addEventListener('change', () => {
-            if (fileInput.files.length) this.handleProblemSetUpload(fileInput.files[0]);
-        });
-
-        // ZIP upload handlers
-        const uploadAreaZip = this.container.querySelector('#upload-area-zip');
-        const fileInputZip = this.container.querySelector('#file-input-zip');
-        if (uploadAreaZip && fileInputZip) {
-            uploadAreaZip.addEventListener('click', () => fileInputZip.click());
-            fileInputZip.addEventListener('change', () => {
-                if (fileInputZip.files.length) this.handleZipUpload(fileInputZip.files[0]);
-            });
-        }
-
-        // Directory upload handler
-        const dirBtn = this.container.querySelector('#btn-upload-dir');
-        if (dirBtn) {
-            dirBtn.addEventListener('click', () => this.handleDirectoryUpload());
-        }
 
         // Loaded sets — click to start new session
         this.container.querySelectorAll('[data-loaded-index]').forEach(item => {
