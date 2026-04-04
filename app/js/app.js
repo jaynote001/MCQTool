@@ -7,9 +7,10 @@ import { SAMPLE_PROBLEM_SET, SAMPLE_PROBLEM_SETS, SAMPLE_ATTEMPT } from './sampl
 class MCQApp {
     constructor() {
         this.container = document.getElementById('app');
+        const restored = this.restoreFromStorage();
         this.state = {
             // Data
-            problemSets: [],
+            problemSets: restored.problemSets || [],
             selectedSet: null,
             // Session config
             mode: 'Straight',
@@ -42,6 +43,8 @@ class MCQApp {
             correctiveFirstResponses: new Map(),
             // Longitudinal
             longitudinalAttempts: [],
+            // Persisted across sessions
+            completedAttempts: restored.completedAttempts || [],
         };
         this.navigate('upload');
     }
@@ -49,6 +52,25 @@ class MCQApp {
     navigate(screen) {
         this.state.currentScreen = screen;
         this.render();
+    }
+
+    // ---- SessionStorage persistence ----
+    persistToStorage() {
+        try {
+            const data = {
+                problemSets: this.state.problemSets,
+                completedAttempts: this.state.completedAttempts,
+            };
+            sessionStorage.setItem('mcq_app_state', JSON.stringify(data));
+        } catch (e) { /* storage full or unavailable */ }
+    }
+
+    restoreFromStorage() {
+        try {
+            const raw = sessionStorage.getItem('mcq_app_state');
+            if (raw) return JSON.parse(raw);
+        } catch (e) { /* corrupted — ignore */ }
+        return {};
     }
 
     render() {
@@ -70,6 +92,61 @@ class MCQApp {
     // ======================== S1: Upload & Select ========================
 
     renderUploadScreen() {
+        const attempts = this.state.completedAttempts;
+        const hasAttempts = attempts.length > 0;
+        const loadedSets = this.state.problemSets;
+        const hasLoadedSets = loadedSets.length > 0;
+        const hasAnyData = hasAttempts || hasLoadedSets;
+
+        let loadedSetsHtml = '';
+        if (hasLoadedSets) {
+            loadedSetsHtml = `
+            <div class="card">
+                <h2>Loaded Problem Sets</h2>
+                <div class="set-list">
+                    ${loadedSets.map((s, i) => `
+                        <div class="set-item" data-loaded-index="${i}">
+                            <div>
+                                <div class="set-title">${escapeHtml(s.Title)}</div>
+                                <div class="set-meta">${escapeHtml(s.Concepts_Covered.join(', '))}</div>
+                            </div>
+                            <span class="set-count">${s.Problems.length} Qs</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+        }
+
+        let attemptsHtml = '';
+        if (hasAttempts) {
+            attemptsHtml = `
+            <div class="card">
+                <div class="section-header-row">
+                    <h2>Completed Attempts (${attempts.length})</h2>
+                    <div class="section-header-actions">
+                        ${attempts.length > 1 ? `<button class="btn btn-outline btn-sm" id="btn-download-all">Download All</button>` : ''}
+                    </div>
+                </div>
+                <div class="attempts-list">
+                    ${attempts.map((a, i) => {
+                        const stats = a.record.Analysis_Report?.Session_Statistics;
+                        const acc = stats ? formatPercent(stats.Total_Accuracy_Percent) : 'N/A';
+                        const qs = stats ? stats.Attempted_Questions : '?';
+                        return `
+                        <div class="attempt-item">
+                            <div class="attempt-info">
+                                <div class="attempt-name">${escapeHtml(a.filename)}</div>
+                                <div class="attempt-meta">${escapeHtml(a.record.Problem_Set_ID)} &middot; ${a.record.Attempt_Date} &middot; ${qs} Qs &middot; ${acc}</div>
+                            </div>
+                            <button class="btn btn-outline btn-sm" data-dl-attempt="${i}">Download</button>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+        } else {
+            attemptsHtml = '';
+        }
+
         this.container.innerHTML = `
             <div class="card">
                 <h2>Upload Problem Set</h2>
@@ -82,6 +159,16 @@ class MCQApp {
                 <div id="upload-error"></div>
                 <div id="set-list-container"></div>
             </div>
+
+            ${loadedSetsHtml}
+
+            ${attemptsHtml}
+
+            ${hasAnyData ? `
+            <div class="card" style="text-align:center;">
+                <button class="btn btn-danger" id="btn-refresh-memory">Refresh Memory — Clear All Data</button>
+            </div>
+            ` : ''}
 
             <div class="card">
                 <h2>Longitudinal Analysis</h2>
@@ -156,6 +243,14 @@ class MCQApp {
             if (fileInput.files.length) this.handleProblemSetUpload(fileInput.files[0]);
         });
 
+        // Loaded sets — click to start new session
+        this.container.querySelectorAll('[data-loaded-index]').forEach(item => {
+            item.addEventListener('click', () => {
+                this.state.selectedSet = loadedSets[parseInt(item.dataset.loadedIndex)];
+                this.navigate('setup');
+            });
+        });
+
         // Sample file — View toggles
         const viewData = { single: SAMPLE_PROBLEM_SET, multi: SAMPLE_PROBLEM_SETS, attempt: SAMPLE_ATTEMPT };
         this.container.querySelectorAll('[data-view]').forEach(btn => {
@@ -187,6 +282,29 @@ class MCQApp {
         this.container.querySelector('#btn-longitudinal').addEventListener('click', () => {
             this.navigate('longitudinal');
         });
+
+        // Completed attempts — download individual
+        this.container.querySelectorAll('[data-dl-attempt]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.dataset.dlAttempt);
+                const a = this.state.completedAttempts[idx];
+                if (a) downloadJSON(a.record, a.filename);
+            });
+        });
+
+        // Download all attempts
+        const dlAllBtn = this.container.querySelector('#btn-download-all');
+        if (dlAllBtn) {
+            dlAllBtn.addEventListener('click', () => {
+                this.state.completedAttempts.forEach(a => downloadJSON(a.record, a.filename));
+            });
+        }
+
+        // Refresh memory
+        const refreshBtn = this.container.querySelector('#btn-refresh-memory');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => this.clearAllMemory());
+        }
     }
 
     async handleProblemSetUpload(file) {
@@ -202,6 +320,7 @@ class MCQApp {
                 return;
             }
             this.state.problemSets = sets;
+            this.persistToStorage();
             if (sets.length === 1) {
                 this.state.selectedSet = sets[0];
                 this.navigate('setup');
@@ -936,10 +1055,31 @@ class MCQApp {
     afterReinforcement() {
         const s = this.state;
         if (s.mode === 'Corrective' || s.currentChunkIndex >= s.chunks.length - 1) {
+            this.saveCurrentAttempt();
             this.navigate('export');
         } else {
             this.navigate('chunkTransition');
         }
+    }
+
+    saveCurrentAttempt() {
+        const s = this.state;
+        const set = s.selectedSet;
+        if (!set || s.allResponses.length === 0) return;
+        // Avoid saving duplicates for the same session
+        if (s._exportSaved) return;
+
+        let finalReport = s.analysisReport;
+        if (s.allResponses.length !== (finalReport?.Session_Statistics?.Total_Questions || 0)) {
+            finalReport = computeAnalysisReport(s.allResponses, set.Problems);
+        }
+        const timestamp = generateTimestamp();
+        const attemptRecord = this.buildAttemptRecord(finalReport, timestamp);
+        const filename = `${set.ID}_${timestamp}_Attempted.json`;
+        s.completedAttempts.push({ record: attemptRecord, filename });
+        s._exportSaved = true;
+        s._currentExport = { record: attemptRecord, filename, report: finalReport };
+        this.persistToStorage();
     }
 
     // ======================== S7: Chunk Transition ========================
@@ -967,7 +1107,10 @@ class MCQApp {
             this.state.currentChunkIndex++;
             this.startChunk();
         });
-        this.container.querySelector('#btn-stop-export').addEventListener('click', () => this.navigate('export'));
+        this.container.querySelector('#btn-stop-export').addEventListener('click', () => {
+            this.saveCurrentAttempt();
+            this.navigate('export');
+        });
     }
 
     // ======================== S8: Export Screen ========================
@@ -975,14 +1118,12 @@ class MCQApp {
     renderExportScreen() {
         const s = this.state;
         const set = s.selectedSet;
-        // Build cumulative analysis for all responses if multiple chunks
-        let finalReport = s.analysisReport;
-        if (s.allResponses.length !== (s.analysisReport?.Session_Statistics?.Total_Questions || 0)) {
-            finalReport = computeAnalysisReport(s.allResponses, set.Problems);
-        }
 
+        // Save attempt if not already saved (e.g. stop & export from chunk transition)
+        if (!s._exportSaved) this.saveCurrentAttempt();
+
+        const { record: attemptRecord, filename, report: finalReport } = s._currentExport;
         const stats = finalReport.Session_Statistics;
-        const timestamp = generateTimestamp();
 
         this.container.innerHTML = `
             <div class="card">
@@ -1007,8 +1148,6 @@ class MCQApp {
         `;
 
         this.container.querySelector('#btn-download').addEventListener('click', () => {
-            const attemptRecord = this.buildAttemptRecord(finalReport, timestamp);
-            const filename = `${set.ID}_${timestamp}_Attempted.json`;
             downloadJSON(attemptRecord, filename);
             this.container.querySelector('#download-status').innerHTML = `<div class="success-msg">Downloaded: ${filename}</div>`;
         });
@@ -1193,9 +1332,14 @@ class MCQApp {
     // ======================== Helpers ========================
 
     resetState() {
+        const preserved = {
+            completedAttempts: this.state.completedAttempts,
+            problemSets: this.state.problemSets,
+            selectedSet: this.state.selectedSet,
+        };
         this.state = {
-            problemSets: [],
-            selectedSet: this.state.selectedSet, // Keep selected set for convenience
+            problemSets: preserved.problemSets,
+            selectedSet: preserved.selectedSet,
             mode: 'Straight',
             chunkSize: 'All',
             priorAttempt: null,
@@ -1218,7 +1362,21 @@ class MCQApp {
             reinforcementFeedback: null,
             correctiveFirstResponses: new Map(),
             longitudinalAttempts: [],
+            completedAttempts: preserved.completedAttempts,
+            _exportSaved: false,
+            _currentExport: null,
         };
+        this.persistToStorage();
+    }
+
+    clearAllMemory() {
+        if (!confirm('This will clear all loaded problem sets and completed attempts. Continue?')) return;
+        this.state.completedAttempts = [];
+        this.state.problemSets = [];
+        this.state.selectedSet = null;
+        this.state.longitudinalAttempts = [];
+        this.persistToStorage();
+        this.navigate('upload');
     }
 }
 
