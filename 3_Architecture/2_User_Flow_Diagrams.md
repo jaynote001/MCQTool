@@ -1,6 +1,6 @@
 # MCQ Tool — User Flow Diagrams
 
-> Derived from: UI Screens (S1–S9), Functional Requirements (FR-1 to FR-9)
+> Derived from: UI Screens (S1–S9), Functional Requirements (FR-1 to FR-10)
 
 ---
 
@@ -9,7 +9,7 @@
 ```mermaid
 flowchart TD
     START([Open Application]) --> S1[S1: Upload & Select Problem Set]
-    S1 -->|File validated| S2[S2: Session Setup]
+    S1 -->|File/ZIP/Dir validated| S2[S2: Session Setup]
     S2 -->|Config confirmed| S3[S3: Practice — Phase 2]
 
     S3 -->|Chunk submitted| S4[S4: Analysis Dashboard — Phase 3]
@@ -36,10 +36,16 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Select Problem Set from loaded sets] --> B[Choose Practice Mode]
+    A0{Upload type?} -->|JSON file| A1[Parse JSON directly]
+    A0 -->|ZIP archive| A2[Extract with JSZip → find Problems.json + assets/]
+    A0 -->|Directory| A3[Read via directory picker → find Problems.json + assets/]
+    A1 --> A[Select Problem Set from loaded sets]
+    A2 --> A
+    A3 --> A
+    A --> B[Choose Practice Mode]
     B --> C{Mode?}
     C -->|Straight| D[Keep authored order]
-    C -->|Jumbled| E[Randomize order]
+    C -->|Jumbled| E[Group by Context_Group → shuffle groups + standalone]
     C -->|Corrective| F[Upload prior Attempt JSON]
     F --> F2[Filter: keep problems NOT Correct+Sure]
     D --> G[Choose Chunk Size: All / 5 / 10]
@@ -54,8 +60,18 @@ flowchart TD
 ```mermaid
 flowchart TD
     A([Chunk starts]) --> B[Display Problem]
-    B --> C[Timer starts automatically]
-    C --> D[Learner reads problem & options]
+    B --> B1{Has Context_Group?}
+    B1 -->|Yes - first in group| B2[Render shared context content blocks]
+    B1 -->|Yes - subsequent| B3[Show collapsible context]
+    B1 -->|No| B4[Skip context]
+    B2 --> B5{Has problem-level Content?}
+    B3 --> B5
+    B4 --> B5
+    B5 -->|Yes| B6[Render problem content blocks]
+    B5 -->|No| B7[Continue]
+    B6 --> C[Render Problem Statement + Options with Markdown/LaTeX]
+    B7 --> C
+    C --> D[Timer starts automatically]
     D --> E[Learner selects one option]
     E --> F[Learner selects confidence: S / SS / D / G]
     F --> G{Last problem in chunk?}
@@ -92,7 +108,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[S1: Upload original Problem Set] --> B[S2: Select Corrective Mode]
+    A[S1: Upload original Problem Set — JSON/ZIP/Directory] --> B[S2: Select Corrective Mode]
     B --> C[Upload previous Attempt JSON]
     C --> D[System matches Attempt to Problem Set]
     D --> E{Match valid?}

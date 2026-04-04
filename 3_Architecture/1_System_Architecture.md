@@ -1,6 +1,6 @@
 # MCQ Tool — System Architecture Overview
 
-> Derived from: Functional Requirements (FR-1 to FR-9), Data Model (DM-1 to DM-5), UI Screens (UI-1 to UI-10), Non-Functional Requirements (NFR-1 to NFR-5)
+> Derived from: Functional Requirements (FR-1 to FR-10), Data Model (DM-0 to DM-5), UI Screens (UI-1 to UI-10), Non-Functional Requirements (NFR-1 to NFR-6)
 
 ---
 
@@ -19,10 +19,11 @@ Per NFR-1, the entire application runs in the browser with zero server dependenc
 │  │  (Screens) │← │ Logic Layer    │← │  Layer                │  │
 │  └────────────┘  └────────────────┘  └───────────────────────┘  │
 │                                                                  │
+│  Client-side libraries: KaTeX, Marked, JSZip                     │
 │  No server. No database. No authentication.                      │
 └─────────────────────────────────────────────────────────────────┘
          ↕                                       ↕
-    User Input                           JSON Files (upload/download)
+    User Input                      JSON / ZIP / Directory (upload/download)
 ```
 
 ---
@@ -45,38 +46,47 @@ graph TB
 
     subgraph APP["Application Logic Layer"]
         FP[File Parser & Validator]
+        AL[Asset Loader]
         SM[Session Manager]
         PE[Practice Engine]
         AE[Analysis Engine]
         FE[Feedback Engine]
         RE[Reinforcement Engine]
+        RC[Rich Content Renderer]
         EX[Export Manager]
         LA[Longitudinal Analyzer]
     end
 
     subgraph DATA["Data Layer (In-Memory)"]
-        PS[(Problem Set)]
+        PS[(Problem Set + Context Groups)]
+        AS[(Asset Store — images/files)]
         SS[(Session State)]
         AR[(Attempt Record)]
         HA[(Historical Attempts)]
     end
 
     S1 --> FP
+    S1 --> AL
     S2 --> SM
     S3 --> PE
+    S3 --> RC
     S4 --> AE
     S5 --> FE
+    S5 --> RC
     S6 --> RE
     S7 --> SM
     S8 --> EX
     S9 --> LA
 
     FP --> PS
+    AL --> AS
     SM --> SS
     PE --> SS
     AE --> AR
     FE --> AR
     RE --> SS
+    RC --> PS
+    RC --> AS
     EX --> AR
     LA --> HA
 ```
@@ -105,12 +115,14 @@ Contains all business rules. Stateless functions that operate on data.
 
 | Component | Responsibility | Key Requirements |
 |-----------|---------------|-----------------|
-| **File Parser & Validator** | Parse uploaded JSON, detect single/multi-set format, validate schema | FR-1.1 to FR-1.6 |
-| **Session Manager** | Manage session lifecycle: mode, chunk division, phase transitions, chunk continuation | FR-3.1 to FR-3.3, FR-5.1 to FR-5.2 |
+| **File Parser & Validator** | Parse uploaded JSON/ZIP/directory, detect single/multi-set format, validate schema including Context_Groups and Content blocks | FR-1.1 to FR-1.7 |
+| **Asset Loader** | Extract and store images/files from ZIP archives or directory uploads; resolve asset paths relative to Problems.json | FR-1.2, FR-10.3 |
+| **Session Manager** | Manage session lifecycle: mode, chunk division, context group–aware shuffling, phase transitions, chunk continuation | FR-3.1 to FR-3.3, FR-5.1 to FR-5.2, FR-2.2 |
 | **Practice Engine** | Serve problems in mode order, collect responses (option + confidence + time), handle Corrective mode re-queue logic | FR-2.1 to FR-2.4, FR-4.1 to FR-4.7 |
 | **Analysis Engine** | Compute all statistics: core metrics, confidence-wise accuracy, matrix, concept breakdown, feedback review order | FR-7.1 to FR-7.6 |
 | **Feedback Engine** | Sort problems into priority-ordered review categories, serve review cards | FR-6.1 to FR-6.3 |
 | **Reinforcement Engine** | Manage re-attempt queue, track cleared/remaining problems, enforce stats isolation | FR-6.4 to FR-6.9 |
+| **Rich Content Renderer** | Render Content block arrays (text, markdown, latex, image, code); render inline Markdown + LaTeX in Problem_Statement, Options, Explanation | FR-10.1 to FR-10.5 |
 | **Export Manager** | Serialize Attempt Record to JSON, generate filename, trigger download | FR-8.1 to FR-8.3 |
 | **Longitudinal Analyzer** | Load multiple Attempt files, compute cross-attempt trends | FR-9.1 to FR-9.3 |
 
@@ -119,7 +131,8 @@ All data lives in memory during a session. No persistence beyond explicit file e
 
 | Store | Contents | Lifecycle |
 |-------|----------|-----------|
-| **Problem Set** | Parsed problem set (problems, metadata, concepts) | Loaded on upload, read-only during session |
+| **Problem Set** | Parsed problem set (problems, metadata, concepts, context groups) | Loaded on upload, read-only during session |
+| **Asset Store** | Extracted images/files from ZIP or directory (as Blob URLs) | Loaded with problem set, read-only, revoked on session end |
 | **Session State** | Current mode, chunk config, current chunk index, problem queue, per-problem timer state | Created at session start, mutated during practice |
 | **Attempt Record** | Responses array + Analysis Report | Built during practice, finalized on submission, exported as JSON |
 | **Historical Attempts** | Multiple loaded Attempt Records for longitudinal analysis | Loaded on-demand in S9 |
@@ -132,16 +145,30 @@ All data lives in memory during a session. No persistence beyond explicit file e
 
 ```mermaid
 flowchart TD
-    A[JSON File Uploaded] --> B{Root is Array?}
-    B -->|Yes| C[Multi-Set: parse each element as Problem Set]
-    B -->|No| D{Root is Object with 'Problems' key?}
-    D -->|Yes| E[Single-Set: parse as Problem Set]
-    D -->|No| F[Validation Error: invalid format]
-    C --> G[Validate each Problem Set schema]
-    E --> G
-    G --> H{All fields present?}
-    H -->|Yes| I[Store in Problem Set data store]
-    H -->|No| J[Validation Error: list missing fields]
+    A[Upload received] --> B{Upload type?}
+    B -->|.json file| C[Read JSON directly]
+    B -->|.zip file| D[Extract with JSZip]
+    B -->|Directory| E[Read via File System Access API]
+    D --> F[Locate Problems.json in archive root]
+    E --> G[Locate Problems.json in directory]
+    F --> H[Extract assets/ files → Asset Store]
+    G --> H
+    C --> I{Root is Array?}
+    F --> I
+    G --> I
+    I -->|Yes| J[Multi-Set: parse each element as Problem Set]
+    I -->|No| K{Root is Object with 'Problems' key?}
+    K -->|Yes| L[Single-Set: parse as Problem Set]
+    K -->|No| M[Validation Error: invalid format]
+    J --> N[Validate each Problem Set schema]
+    L --> N
+    N --> O{Context_Groups present?}
+    O -->|Yes| P[Validate Group_IDs, Content blocks, problem references]
+    O -->|No| Q[Continue]
+    P --> R{All valid?}
+    Q --> R
+    R -->|Yes| S[Store in Problem Set data store]
+    R -->|No| T[Validation Error: list missing/invalid fields]
 ```
 
 ### 4.2 Session Manager
@@ -150,10 +177,12 @@ flowchart TD
 flowchart TD
     A[Session Config Received] --> B{Mode?}
     B -->|Straight| C[Order: authored sequence]
-    B -->|Jumbled| D[Order: randomize full set]
+    B -->|Jumbled| D[Group problems by Context_Group]
     B -->|Corrective| E[Filter: non Correct+Sure from Attempt file]
-    C --> F{Chunk Size?}
-    D --> F
+    D --> D2[Shuffle groups + standalone problems]
+    D2 --> D3[Preserve in-group problem order]
+    D3 --> F{Chunk Size?}
+    C --> F
     F -->|All| G[Single chunk = full set]
     F -->|5 or 10| H[Divide into sequential chunks]
     E --> I[Single queue, no chunking]
@@ -166,15 +195,27 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Display Problem N] --> B[Start Timer]
-    B --> C[Learner selects Option]
-    C --> D[Learner selects Confidence]
-    D --> E[Learner clicks Next / Submit]
-    E --> F[Stop Timer — record time_seconds]
-    F --> G[Store Response: Problem_ID + Option + Confidence + time_seconds]
-    G --> H{More problems in chunk?}
-    H -->|Yes| A
-    H -->|No| I[Submit Chunk → Phase 3]
+    A[Display Problem N] --> A2{Has Context_Group?}
+    A2 -->|Yes, first in group| B1[Render Context Group content blocks]
+    A2 -->|Yes, subsequent| B2[Show collapsible Context Group]
+    A2 -->|No| B3[Skip context]
+    B1 --> B4{Has problem-level Content?}
+    B2 --> B4
+    B3 --> B4
+    B4 -->|Yes| B5[Render problem Content blocks]
+    B4 -->|No| B6[Skip]
+    B5 --> C[Render Problem Statement with Markdown/LaTeX]
+    B6 --> C
+    C --> D[Render Options with Markdown/LaTeX]
+    D --> E[Start Timer]
+    E --> F[Learner selects Option]
+    F --> G[Learner selects Confidence]
+    G --> H[Learner clicks Next / Submit]
+    H --> I[Stop Timer — record time_seconds]
+    I --> J[Store Response: Problem_ID + Option + Confidence + time_seconds]
+    J --> K{More problems in chunk?}
+    K -->|Yes| A
+    K -->|No| L[Submit Chunk → Phase 3]
 ```
 
 ### 4.4 Analysis Engine

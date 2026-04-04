@@ -1,6 +1,6 @@
 # MCQ Tool — Component Architecture & Module Decomposition
 
-> Derived from: System Architecture (§2–§3), Functional Requirements (FR-1 to FR-9), UI Screens (S1–S9)
+> Derived from: System Architecture (§2–§3), Functional Requirements (FR-1 to FR-10), UI Screens (S1–S9)
 
 ---
 
@@ -22,11 +22,13 @@ graph TB
 
     subgraph CORE_MODULES["Core Logic Modules"]
         CM_FPV[FileParserValidator]
+        CM_ASL[AssetLoader]
         CM_SMG[SessionManager]
         CM_PEN[PracticeEngine]
         CM_AEN[AnalysisEngine]
         CM_FEN[FeedbackEngine]
         CM_REN[ReinforcementEngine]
+        CM_RCR[RichContentRenderer]
         CM_EXM[ExportManager]
         CM_LAN[LongitudinalAnalyzer]
         CM_TMR[TimerService]
@@ -39,18 +41,23 @@ graph TB
     end
 
     UM_UPS --> CM_FPV
+    UM_UPS --> CM_ASL
     UM_SES --> CM_SMG
     UM_PRC --> CM_PEN
+    UM_PRC --> CM_RCR
     UM_PRC --> CM_TMR
     UM_DAS --> CM_AEN
     UM_REV --> CM_FEN
+    UM_REV --> CM_RCR
     UM_RNF --> CM_REN
+    UM_RNF --> CM_RCR
     UM_CHK --> CM_SMG
     UM_EXP --> CM_EXM
     UM_LNG --> CM_LAN
 
     CM_PEN --> SH_SC
     CM_FPV --> SH_FIO
+    CM_ASL --> SH_FIO
     CM_EXM --> SH_FIO
     CM_LAN --> SH_FIO
     CM_AEN --> SH_FMT
@@ -62,25 +69,49 @@ graph TB
 
 ### 2.1 FileParserValidator
 
-Parses and validates uploaded JSON files.
+Parses and validates uploaded JSON files, ZIP archives, or directories.
 
 ```
 Inputs:
-  - rawFile: File (from file input)
+  - rawFile: File (from file input — .json or .zip)
+  - directoryHandle: FileSystemDirectoryHandle (from directory picker)
 
 Outputs:
   - problemSets: ProblemSet[]   (one or more validated sets)
+  - assetFiles: Map<string, Blob>  (extracted assets keyed by relative path)
   - errors: ValidationError[]   (list of issues if invalid)
 
 Methods:
-  parseFile(file) → { sets: ProblemSet[], errors: string[] }
+  parseFile(file) → { sets: ProblemSet[], assets: Map<string, Blob>, errors: string[] }
+  parseZip(file) → { sets: ProblemSet[], assets: Map<string, Blob>, errors: string[] }
+  parseDirectory(dirHandle) → { sets: ProblemSet[], assets: Map<string, Blob>, errors: string[] }
   detectFormat(json) → "single" | "multi" | "invalid"
   validateProblemSet(obj) → { valid: boolean, errors: string[] }
+  validateContextGroups(groups, problems) → { valid: boolean, errors: string[] }
+  validateContentBlocks(blocks) → { valid: boolean, errors: string[] }
 ```
 
-### 2.2 SessionManager
+### 2.2 AssetLoader
 
-Manages session lifecycle: mode selection, chunk division, phase transitions.
+Manages loading and resolving image/file assets from uploads.
+
+```
+Inputs:
+  - assetFiles: Map<string, Blob>  (from FileParserValidator)
+
+State:
+  - blobURLs: Map<string, string>  (relative path → Blob URL)
+
+Methods:
+  loadAssets(assetFiles) → void  (creates Blob URLs in memory)
+  resolveURL(relativePath) → string | null  (returns Blob URL for a path)
+  isDataURI(value) → boolean
+  revokeAll() → void  (cleanup Blob URLs on session end)
+```
+
+### 2.3 SessionManager
+
+Manages session lifecycle: mode selection, chunk division, context group–aware shuffling, phase transitions.
 
 ```
 Inputs:
@@ -96,6 +127,8 @@ State:
 
 Methods:
   initSession(config) → SessionState
+  groupByContext(problems, contextGroups) → ProblemGroup[]  (groups + standalone)
+  shuffleGroups(groups) → Problem[]  (shuffle groups, preserve in-group order)
   getCurrentChunk() → Problem[]
   advanceToNextChunk() → Problem[] | null
   hasMoreChunks() → boolean
@@ -103,21 +136,24 @@ Methods:
   setPhase(phase) → void
 ```
 
-### 2.3 PracticeEngine
+### 2.4 PracticeEngine
 
-Serves problems and collects responses during Phase 2.
+Serves problems and collects responses during Phase 2. Delegates rendering of rich content.
 
 ```
 Inputs:
   - problems: Problem[]  (the current chunk)
+  - contextGroups: ContextGroup[]  (from problem set)
   - mode: PracticeMode
 
 State:
   - currentIndex: number
   - responses: Response[]
+  - lastContextGroupID: string | null  (tracks which group was last shown)
 
 Methods:
   getCurrentProblem() → Problem
+  getContextForProblem(problem) → { group: ContextGroup | null, isFirst: boolean }
   submitResponse(option, confidence, timeSeconds) → void
   nextProblem() → Problem | null
   isLastProblem() → boolean
@@ -125,7 +161,7 @@ Methods:
   reset() → void
 ```
 
-### 2.4 TimerService
+### 2.5 TimerService
 
 Tracks time per problem.
 
@@ -140,7 +176,7 @@ Methods:
   reset() → void
 ```
 
-### 2.5 AnalysisEngine
+### 2.6 AnalysisEngine
 
 Computes all statistics from responses. Pure functions, no side effects.
 
@@ -162,7 +198,7 @@ Methods:
   buildFeedbackReviewOrder(perQuestionResults) → FeedbackReviewOrder
 ```
 
-### 2.6 FeedbackEngine
+### 2.7 FeedbackEngine
 
 Sorts problems into priority-ordered review categories for passive review.
 
@@ -180,7 +216,7 @@ Methods:
 
 Priority: Correct+SS → Correct+D → Correct+G → Incorrect+S → Incorrect+SS → Incorrect+D → Incorrect+G
 
-### 2.7 ReinforcementEngine
+### 2.8 ReinforcementEngine
 
 Manages the active re-practice loop. Responses here are ephemeral.
 
@@ -201,7 +237,7 @@ Methods:
   isComplete() → boolean
 ```
 
-### 2.8 ExportManager
+### 2.9 ExportManager
 
 Serializes the Attempt Record to JSON and triggers a file download.
 
@@ -214,7 +250,7 @@ Methods:
   exportToJSON(attemptRecord) → void  (triggers browser download)
 ```
 
-### 2.9 LongitudinalAnalyzer
+### 2.10 LongitudinalAnalyzer
 
 Compares multiple Attempt Records across sessions.
 
@@ -233,14 +269,40 @@ Methods:
   identifyPersistentWeakConcepts(attempts) → string[]
 ```
 
-### 2.10 Shared Utilities
+### 2.11 RichContentRenderer
+
+Renders Content block arrays and inline Markdown + LaTeX in text fields.
+
+```
+Inputs:
+  - contentBlocks: ContentBlock[]  (from Context Group or Problem)
+  - text: string  (inline text field — Problem_Statement, option, explanation)
+  - assetLoader: AssetLoader  (for resolving image paths)
+
+Dependencies:
+  - Marked (or equivalent) — Markdown → HTML
+  - KaTeX — LaTeX rendering
+  - AssetLoader — image path resolution
+
+Methods:
+  renderContentBlocks(blocks, assetLoader) → HTMLElement  (renders array of typed blocks)
+  renderInlineRichText(text) → string  (Markdown + inline LaTeX → HTML)
+  renderLatexBlock(latex) → HTMLElement  (display-mode $$...$$)
+  renderCodeBlock(code, language?) → HTMLElement  (syntax-highlighted <pre>)
+  renderImage(src, alt?, assetLoader) → HTMLElement  (resolve path, create <img>)
+```
+
+### 2.12 Shared Utilities
 
 ```
 ShuffleUtil:
   shuffle(array) → array  (Fisher-Yates)
+  shuffleGroups(groups) → array  (shuffle groups, preserve in-group order)
 
 FileIOUtil:
   readJSONFile(file) → Promise<object>  (FileReader API)
+  readZipFile(file) → Promise<{ json: object, assets: Map<string, Blob> }>  (JSZip)
+  readDirectory(dirHandle) → Promise<{ json: object, assets: Map<string, Blob> }>  (File System Access API)
   downloadJSON(data, filename) → void   (Blob + URL.createObjectURL)
 
 FormatUtil:
@@ -254,18 +316,21 @@ FormatUtil:
 
 | Module | Depends On |
 |--------|-----------|
-| UploadScreen | FileParserValidator |
+| UploadScreen | FileParserValidator, AssetLoader |
 | SetupScreen | SessionManager |
-| PracticeScreen | PracticeEngine, TimerService |
+| PracticeScreen | PracticeEngine, TimerService, RichContentRenderer |
 | DashboardScreen | AnalysisEngine |
-| ReviewScreen | FeedbackEngine |
-| ReinforcementScreen | ReinforcementEngine |
+| ReviewScreen | FeedbackEngine, RichContentRenderer |
+| ReinforcementScreen | ReinforcementEngine, RichContentRenderer |
 | ChunkTransitionScreen | SessionManager |
 | ExportScreen | ExportManager |
 | LongitudinalScreen | LongitudinalAnalyzer |
 | FileParserValidator | FileIOUtil |
+| AssetLoader | FileIOUtil |
 | PracticeEngine | ShuffleUtil |
+| SessionManager | ShuffleUtil |
 | AnalysisEngine | FormatUtil |
+| RichContentRenderer | AssetLoader, Marked (lib), KaTeX (lib) |
 | ExportManager | FileIOUtil |
 | LongitudinalAnalyzer | FileIOUtil |
 
@@ -275,8 +340,11 @@ FormatUtil:
 
 ```mermaid
 flowchart LR
-    FPV[FileParserValidator] -->|ProblemSet| SMG[SessionManager]
+    FPV[FileParserValidator] -->|ProblemSet + assets| ASL[AssetLoader]
+    FPV -->|ProblemSet| SMG[SessionManager]
+    ASL -->|Blob URLs| RCR[RichContentRenderer]
     SMG -->|Problem[] chunk| PEN[PracticeEngine]
+    PEN -->|Problem + Context| RCR
     PEN -->|Response[]| AEN[AnalysisEngine]
     AEN -->|AnalysisReport| FEN[FeedbackEngine]
     AEN -->|PerQuestionResult[]| REN[ReinforcementEngine]
@@ -293,8 +361,9 @@ flowchart LR
 ```mermaid
 stateDiagram-v2
     [*] --> Empty
-    Empty --> SetsLoaded: FileParserValidator.parseFile()
-    SetsLoaded --> SessionActive: SessionManager.initSession()
+    Empty --> SetsLoaded: FileParserValidator.parseFile/parseZip/parseDirectory()
+    SetsLoaded --> AssetsReady: AssetLoader.loadAssets()
+    AssetsReady --> SessionActive: SessionManager.initSession()
     SessionActive --> ChunkInProgress: PracticeEngine starts
     ChunkInProgress --> ChunkComplete: All responses collected
     ChunkComplete --> AnalysisReady: AnalysisEngine.computeReport()
@@ -319,4 +388,7 @@ stateDiagram-v2
 | Timer captures per-problem time, not cumulative | TimerService resets per problem | FR-4.6, FR-4.7 |
 | Problem Set is immutable during session | FileParserValidator returns frozen copy | FR-1.1 |
 | Analysis only runs on original attempt data per chunk | AnalysisEngine receives only PracticeEngine responses | FR-7.1 |
-| Chunk order preserved even in Jumbled mode (only within-chunk is shuffled) | SessionManager divides first, PracticeEngine shuffles within | FR-3.2 |
+| Context group problems stay together in Jumbled mode | SessionManager.shuffleGroups() shuffles groups not individual problems | FR-2.2 |
+| Asset Blob URLs are revoked on session end | AssetLoader.revokeAll() called on session teardown | NFR-2 |
+| Context Groups and Content blocks are optional | FileParserValidator treats absent fields as defaults (null/empty) | FR-10, DM-1.3 |
+| Rich content rendered via Marked + KaTeX | RichContentRenderer handles all Markdown/LaTeX/image rendering | FR-10.1, FR-10.2 |
