@@ -624,3 +624,203 @@ details[open] .sample-files-summary::before {
     .section-header-row { flex-direction: column; align-items: flex-start; }
     .attempt-item { flex-direction: column; align-items: flex-start; }
 }
+
+/* --- Upload Methods --- */
+.upload-methods { display: flex; flex-direction: column; gap: 0.75rem; }
+.upload-alt-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: stretch;
+}
+.upload-area-sm {
+    flex: 1;
+    padding: 1rem;
+    font-size: 0.9rem;
+}
+.upload-alt-row .btn { min-height: 3rem; }
+
+/* --- Context Group Block --- */
+.context-group-block {
+    background: var(--info-light);
+    border: 1px solid var(--info);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+.context-group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--info);
+}
+.context-group-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--info);
+    background: white;
+    padding: 0.15rem 0.5rem;
+    border-radius: 1rem;
+    border: 1px solid var(--info);
+}
+.context-group-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text);
+}
+.context-group-collapsible {
+    margin: 0;
+}
+.context-group-summary {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    list-style: none;
+    padding: 0.25rem 0;
+}
+.context-group-summary::-webkit-details-marker { display: none; }
+.context-group-toggle {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+.context-group-collapsible[open] .context-group-toggle { display: none; }
+.context-group-collapsible[open] > .content-blocks {
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--info);
+}
+
+/* --- Content Blocks --- */
+.content-blocks {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.content-block {
+    line-height: 1.6;
+}
+
+/* Text block */
+.content-text {
+    color: var(--text);
+}
+
+/* Markdown block */
+.content-markdown {
+    color: var(--text);
+}
+.content-markdown p { margin: 0 0 0.5rem; }
+.content-markdown p:last-child { margin-bottom: 0; }
+.content-markdown code {
+    background: #f1f5f9;
+    padding: 0.15rem 0.35rem;
+    border-radius: 3px;
+    font-size: 0.88em;
+    font-family: 'Courier New', Courier, monospace;
+    color: var(--danger-dark);
+}
+.content-markdown strong { font-weight: 700; }
+
+/* LaTeX block */
+.content-latex {
+    text-align: center;
+    padding: 0.75rem 0;
+    overflow-x: auto;
+}
+
+/* Code block */
+.content-code-block {
+    background: #1e293b;
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+.code-language-label {
+    background: #334155;
+    color: #94a3b8;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.35rem 0.75rem;
+}
+.content-code-block pre {
+    margin: 0;
+    padding: 0.85rem 1rem;
+    overflow-x: auto;
+}
+.content-code-block code {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.88rem;
+    color: #e2e8f0;
+    line-height: 1.5;
+    white-space: pre;
+}
+
+/* Image block */
+.content-image {
+    text-align: center;
+}
+.content-image img {
+    max-width: 100%;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: white;
+}
+.image-caption {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-top: 0.35rem;
+}
+.image-fallback {
+    background: var(--bg);
+    border: 1px dashed var(--border-dark);
+    border-radius: var(--radius);
+    padding: 1rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+/* --- Rich text in options --- */
+.option-text p { margin: 0; }
+.option-text code {
+    background: #f1f5f9;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.88em;
+    font-family: 'Courier New', Courier, monospace;
+    color: var(--danger-dark);
+}
+
+/* --- Rich text in explanations --- */
+.explanation p { margin: 0 0 0.5rem; }
+.explanation p:last-child { margin-bottom: 0; }
+.explanation code {
+    background: rgba(0,0,0,0.06);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.88em;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* --- Problem statement rich text --- */
+.problem-statement p { margin: 0 0 0.5rem; }
+.problem-statement p:last-child { margin-bottom: 0; }
+.problem-statement code {
+    background: #f1f5f9;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.88em;
+    font-family: 'Courier New', Courier, monospace;
+    color: var(--danger-dark);
+}
+
+/* --- KaTeX overrides --- */
+.katex { font-size: 1em; }
+.katex-display { margin: 0.5rem 0; overflow-x: auto; }

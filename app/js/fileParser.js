@@ -1,5 +1,7 @@
 // fileParser.js — Parse and validate Problem Set and Attempt JSON files
 
+const VALID_CONTENT_TYPES = ['text', 'markdown', 'latex', 'image', 'code'];
+
 /**
  * Parse uploaded JSON and return validated Problem Sets.
  * Handles both single-set (object) and multi-set (array) formats.
@@ -42,6 +44,32 @@ function validateProblemSet(obj) {
         errors.push('Missing or empty field: Problems (must be a non-empty array)');
         return { errors };
     }
+
+    // Validate Context_Groups if present
+    const validGroupIds = new Set();
+    if (obj.Context_Groups) {
+        if (!Array.isArray(obj.Context_Groups)) {
+            errors.push('Context_Groups must be an array');
+        } else {
+            obj.Context_Groups.forEach((cg, i) => {
+                const prefix = `Context_Group ${cg.Group_ID || i + 1}`;
+                if (!cg.Group_ID) {
+                    errors.push(`${prefix}: Missing Group_ID`);
+                } else if (validGroupIds.has(cg.Group_ID)) {
+                    errors.push(`${prefix}: Duplicate Group_ID "${cg.Group_ID}"`);
+                } else {
+                    validGroupIds.add(cg.Group_ID);
+                }
+                if (!cg.Title) errors.push(`${prefix}: Missing Title`);
+                if (!Array.isArray(cg.Content) || cg.Content.length === 0) {
+                    errors.push(`${prefix}: Content must be a non-empty array`);
+                } else {
+                    validateContentBlocks(cg.Content, prefix, errors);
+                }
+            });
+        }
+    }
+
     obj.Problems.forEach((p, i) => {
         const prefix = `Problem ${p.Problem_ID ?? i + 1}`;
         if (p.Problem_ID === undefined && p.Problem_ID !== 0) errors.push(`${prefix}: Missing Problem_ID`);
@@ -50,8 +78,39 @@ function validateProblemSet(obj) {
         if (!p.Options || typeof p.Options !== 'object') errors.push(`${prefix}: Missing or invalid Options`);
         if (!p.Answer || !p.Answer.Correct_Option) errors.push(`${prefix}: Missing Answer.Correct_Option`);
         if (!p.Answer || !p.Answer.Explanation) errors.push(`${prefix}: Missing Answer.Explanation`);
+
+        // Validate Context_Group reference
+        if (p.Context_Group && validGroupIds.size > 0 && !validGroupIds.has(p.Context_Group)) {
+            errors.push(`${prefix}: Context_Group "${p.Context_Group}" does not match any defined Group_ID`);
+        }
+
+        // Validate problem-level Content blocks if present
+        if (p.Content) {
+            if (!Array.isArray(p.Content)) {
+                errors.push(`${prefix}: Content must be an array`);
+            } else {
+                validateContentBlocks(p.Content, prefix, errors);
+            }
+        }
     });
     return { errors };
+}
+
+/**
+ * Validate an array of Content blocks.
+ */
+function validateContentBlocks(blocks, prefix, errors) {
+    blocks.forEach((block, j) => {
+        const bPrefix = `${prefix} Content[${j}]`;
+        if (!block.type) {
+            errors.push(`${bPrefix}: Missing type`);
+        } else if (!VALID_CONTENT_TYPES.includes(block.type)) {
+            errors.push(`${bPrefix}: Invalid type "${block.type}" (must be one of: ${VALID_CONTENT_TYPES.join(', ')})`);
+        }
+        if (!block.value && block.value !== '') {
+            errors.push(`${bPrefix}: Missing value`);
+        }
+    });
 }
 
 /**
