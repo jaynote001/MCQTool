@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300" viewBox="0 0 480 300">
+  <rect width="480" height="300" fill="#f8fafc"/>
+  <!-- Title -->
+  <text x="240" y="22" font-size="14" fill="#1e293b" font-weight="bold" text-anchor="middle">sns.histplot() Code Output</text>
+  <!-- Code block background -->
+  <rect x="30" y="35" rx="6" ry="6" width="420" height="120" fill="#1e293b"/>
+  <!-- Code text -->
+  <text x="45" y="60" font-family="monospace" font-size="12" fill="#94a3b8">import</text>
+  <text x="100" y="60" font-family="monospace" font-size="12" fill="#e2e8f0"> seaborn </text>
+  <text x="175" y="60" font-family="monospace" font-size="12" fill="#94a3b8">as</text>
+  <text x="195" y="60" font-family="monospace" font-size="12" fill="#e2e8f0"> sns</text>
+  <text x="45" y="82" font-family="monospace" font-size="12" fill="#94a3b8">import</text>
+  <text x="100" y="82" font-family="monospace" font-size="12" fill="#e2e8f0"> matplotlib.pyplot </text>
+  <text x="280" y="82" font-family="monospace" font-size="12" fill="#94a3b8">as</text>
+  <text x="300" y="82" font-family="monospace" font-size="12" fill="#e2e8f0"> plt</text>
+  <text x="45" y="114" font-family="monospace" font-size="12" fill="#e2e8f0">sns.</text>
+  <text x="75" y="114" font-family="monospace" font-size="12" fill="#3b82f6">histplot</text>
+  <text x="143" y="114" font-family="monospace" font-size="12" fill="#e2e8f0">(data=df, x=</text>
+  <text x="248" y="114" font-family="monospace" font-size="12" fill="#22c55e">'salary'</text>
+  <text x="310" y="114" font-family="monospace" font-size="12" fill="#e2e8f0">, kde=</text>
+  <text x="355" y="114" font-family="monospace" font-size="12" fill="#f59e0b">True</text>
+  <text x="385" y="114" font-family="monospace" font-size="12" fill="#e2e8f0">)</text>
+  <text x="45" y="136" font-family="monospace" font-size="12" fill="#e2e8f0">plt.</text>
+  <text x="72" y="136" font-family="monospace" font-size="12" fill="#3b82f6">show</text>
+  <text x="104" y="136" font-family="monospace" font-size="12" fill="#e2e8f0">()</text>
+  <!-- Output label -->
+  <text x="240" y="180" font-size="12" fill="#64748b" text-anchor="middle" font-style="italic">Output → see salary_histogram_kde.svg</text>
+  <!-- Mini histogram preview -->
+  <rect x="100" y="195" width="25" height="15" fill="#3b82f6" opacity="0.4"/>
+  <rect x="130" y="185" width="25" height="25" fill="#3b82f6" opacity="0.4"/>
+  <rect x="160" y="195" width="25" height="15" fill="#3b82f6" opacity="0.4"/>
+  <rect x="190" y="200" width="25" height="10" fill="#3b82f6" opacity="0.4"/>
+  <rect x="220" y="175" width="25" height="35" fill="#3b82f6" opacity="0.4"/>
+  <rect x="250" y="190" width="25" height="20" fill="#3b82f6" opacity="0.4"/>
+  <rect x="280" y="197" width="25" height="13" fill="#3b82f6" opacity="0.4"/>
+  <rect x="310" y="202" width="25" height="8" fill="#3b82f6" opacity="0.4"/>
+  <rect x="340" y="205" width="25" height="5" fill="#3b82f6" opacity="0.4"/>
+  <path d="M 112 207 C 130 195, 140 180, 172 180 C 200 178, 210 195, 232 178 C 250 165, 260 185, 292 198 C 310 205, 330 207, 352 208"
+        fill="none" stroke="#ef4444" stroke-width="2"/>
+  <line x1="100" y1="210" x2="370" y2="210" stroke="#1e293b" stroke-width="1"/>
+</svg>
