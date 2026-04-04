@@ -33,6 +33,11 @@ No server, no database, no accounts — everything runs in your browser using JS
    ```bash
    npx serve app
    ```
+   Or with livereload (auto-refreshes on file changes):
+   ```bash
+   pip install livereload
+   livereload app -p 8080
+   ```
 
 3. **Open in browser**
    ```
