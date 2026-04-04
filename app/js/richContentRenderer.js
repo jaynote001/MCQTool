@@ -216,28 +216,36 @@ export function renderContextGroup(contextGroup, isFirst, assetLoader = null) {
     const wrapper = document.createElement('div');
     wrapper.className = 'context-group-block';
 
-    if (isFirst) {
-        // Show fully expanded for first problem
-        const header = document.createElement('div');
-        header.className = 'context-group-header';
-        header.innerHTML = `<span class="context-group-label">Context</span> <span class="context-group-title">${escapeHtmlInternal(contextGroup.Title)}</span>`;
-        wrapper.appendChild(header);
+    const header = document.createElement('div');
+    header.className = 'context-group-header';
+    header.innerHTML = `<span class="context-group-label">Context</span> <span class="context-group-title">${escapeHtmlInternal(contextGroup.Title)}</span>`;
+    wrapper.appendChild(header);
 
-        const contentEl = renderContentBlocks(contextGroup.Content, assetLoader);
-        wrapper.appendChild(contentEl);
-    } else {
-        // Collapsible for subsequent problems
-        const details = document.createElement('details');
-        details.className = 'context-group-collapsible';
-        const summary = document.createElement('summary');
-        summary.className = 'context-group-summary';
-        summary.innerHTML = `<span class="context-group-label">Context</span> <span class="context-group-title">${escapeHtmlInternal(contextGroup.Title)}</span> <span class="context-group-toggle">(click to expand)</span>`;
-        details.appendChild(summary);
+    const contentEl = renderContentBlocks(contextGroup.Content, assetLoader);
+    contentEl.classList.add('context-group-content');
+    wrapper.appendChild(contentEl);
 
-        const contentEl = renderContentBlocks(contextGroup.Content, assetLoader);
-        details.appendChild(contentEl);
-        wrapper.appendChild(details);
-    }
+    const collapseBtn = document.createElement('button');
+    collapseBtn.className = 'btn btn-outline btn-sm context-toggle-btn context-collapse-btn';
+    collapseBtn.textContent = 'Collapse Context';
+    wrapper.appendChild(collapseBtn);
+
+    const expandBtn = document.createElement('button');
+    expandBtn.className = 'btn btn-outline btn-sm context-toggle-btn context-expand-btn';
+    expandBtn.textContent = 'Expand Context';
+    expandBtn.style.display = 'none';
+    wrapper.appendChild(expandBtn);
+
+    collapseBtn.addEventListener('click', () => {
+        contentEl.style.display = 'none';
+        collapseBtn.style.display = 'none';
+        expandBtn.style.display = '';
+    });
+    expandBtn.addEventListener('click', () => {
+        contentEl.style.display = '';
+        collapseBtn.style.display = '';
+        expandBtn.style.display = 'none';
+    });
 
     return wrapper;
 }

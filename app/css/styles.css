@@ -660,28 +660,13 @@ details[open] .sample-files-summary::before {
     font-size: 0.95rem;
     color: var(--text);
 }
-.context-group-collapsible {
-    margin: 0;
+.context-group-content {
+    margin-bottom: 0.5rem;
 }
-.context-group-summary {
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    list-style: none;
-    padding: 0.25rem 0;
-}
-.context-group-summary::-webkit-details-marker { display: none; }
-.context-group-toggle {
+.context-toggle-btn {
     font-size: 0.78rem;
-    color: var(--text-muted);
-    font-style: italic;
-}
-.context-group-collapsible[open] .context-group-toggle { display: none; }
-.context-group-collapsible[open] > .content-blocks {
-    margin-top: 0.75rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--info);
+    padding: 0.25rem 0.75rem;
+    margin-top: 0.25rem;
 }
 
 /* --- Content Blocks --- */
