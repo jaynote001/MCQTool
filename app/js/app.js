@@ -31,6 +31,10 @@ class MCQApp {
             selectedConfidence: null,
             // Timer
             timerStart: null,
+            // Session timer (countdown)
+            sessionTimeLimit: 0,
+            sessionStartTime: null,
+            _sessionTimerInterval: null,
             // Analysis
             analysisReport: null,
             // Review
@@ -53,6 +57,7 @@ class MCQApp {
     }
 
     navigate(screen) {
+        if (screen !== 'practice') this.clearSessionTimer();
         this.state.currentScreen = screen;
         this.render();
     }
@@ -463,6 +468,15 @@ class MCQApp {
                     </div>
                 </div>
 
+                <div id="timer-section" style="display:${s.mode === 'Corrective' ? 'none' : 'block'}">
+                    <h3>Session Timer <span style="font-weight:400;font-size:0.85rem;color:var(--text-muted);">(optional)</span></h3>
+                    <div class="timer-input-row">
+                        <input type="number" id="timer-minutes" class="timer-input" min="0" max="999" placeholder="0" value="${s.sessionTimeLimit ? s.sessionTimeLimit / 60 : ''}">
+                        <span class="timer-unit">minutes</span>
+                        <button class="btn btn-outline btn-sm" id="btn-clear-timer">No Timer</button>
+                    </div>
+                </div>
+
                 <div class="btn-group mt-3">
                     <button class="btn btn-muted" id="btn-back">Back</button>
                     <button class="btn btn-primary btn-lg" id="btn-start" ${s.mode === 'Corrective' && !s.priorAttempt ? 'disabled' : ''}>Start Practice</button>
@@ -492,6 +506,21 @@ class MCQApp {
             attemptArea.addEventListener('click', () => attemptInput.click());
             attemptInput.addEventListener('change', () => {
                 if (attemptInput.files.length) this.handleAttemptUpload(attemptInput.files[0]);
+            });
+        }
+        // Session timer input
+        const timerInput = this.container.querySelector('#timer-minutes');
+        if (timerInput) {
+            timerInput.addEventListener('change', () => {
+                const val = parseInt(timerInput.value);
+                this.state.sessionTimeLimit = (val > 0) ? val * 60 : 0;
+            });
+        }
+        const clearTimerBtn = this.container.querySelector('#btn-clear-timer');
+        if (clearTimerBtn) {
+            clearTimerBtn.addEventListener('click', () => {
+                this.state.sessionTimeLimit = 0;
+                timerInput.value = '';
             });
         }
         this.container.querySelector('#btn-back').addEventListener('click', () => this.navigate('upload'));
@@ -564,7 +593,50 @@ class MCQApp {
         s.selectedOption = null;
         s.selectedConfidence = null;
         s.timerStart = Date.now();
+        // Start session countdown timer on first chunk
+        if (s.currentChunkIndex === 0 && s.sessionTimeLimit > 0) {
+            s.sessionStartTime = Date.now();
+        }
         this.navigate('practice');
+    }
+
+    clearSessionTimer() {
+        if (this.state._sessionTimerInterval) {
+            clearInterval(this.state._sessionTimerInterval);
+            this.state._sessionTimerInterval = null;
+        }
+    }
+
+    startSessionTimerTick() {
+        this.clearSessionTimer();
+        const s = this.state;
+        if (!s.sessionTimeLimit || !s.sessionStartTime) return;
+        this.state._sessionTimerInterval = setInterval(() => {
+            const elapsed = (Date.now() - s.sessionStartTime) / 1000;
+            const remaining = Math.max(0, s.sessionTimeLimit - elapsed);
+            const timerEl = this.container.querySelector('#session-timer');
+            if (timerEl) {
+                const mins = Math.floor(remaining / 60);
+                const secs = Math.floor(remaining % 60);
+                timerEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                timerEl.classList.toggle('timer-warning', remaining <= 60);
+                timerEl.classList.toggle('timer-critical', remaining <= 15);
+            }
+            if (remaining <= 0) {
+                this.handleTimerExpiry();
+            }
+        }, 500);
+    }
+
+    handleTimerExpiry() {
+        this.clearSessionTimer();
+        const s = this.state;
+        // Submit current chunk responses as-is (unanswered questions remain unattempted)
+        s.allResponses.push(...s.responses);
+        // Compute analysis on what was answered
+        const allProblems = s.chunks.flat();
+        s.analysisReport = computeAnalysisReport(s.allResponses, allProblems);
+        this.navigate('dashboard');
     }
 
     // ======================== S3: Practice Screen ========================
@@ -593,8 +665,11 @@ class MCQApp {
         const isLast = current === total;
         const canProceed = s.selectedOption && s.selectedConfidence;
 
+        const hasSessionTimer = s.sessionTimeLimit > 0 && s.sessionStartTime;
+
         this.container.innerHTML = `
             <div class="card">
+                ${hasSessionTimer ? `<div class="session-timer-bar"><span class="timer-icon">&#9201;</span> <span id="session-timer">--:--</span></div>` : ''}
                 <div class="progress-bar-container">
                     <span class="progress-text">Question ${current} of ${total}</span>
                     <div class="progress-bar">
@@ -679,6 +754,9 @@ class MCQApp {
         });
         // Next/Submit
         this.container.querySelector('#btn-next').addEventListener('click', () => this.handlePracticeNext());
+
+        // Start session countdown if active
+        if (hasSessionTimer) this.startSessionTimerTick();
     }
 
     updatePracticeSubmitBtn() {
@@ -713,6 +791,7 @@ class MCQApp {
     }
 
     submitChunk() {
+        this.clearSessionTimer();
         const s = this.state;
         s.allResponses.push(...s.responses);
         s.analysisReport = computeAnalysisReport(s.responses, s.problemQueue);
@@ -1572,6 +1651,7 @@ class MCQApp {
     // ======================== Helpers ========================
 
     resetState() {
+        this.clearSessionTimer();
         const preserved = {
             completedAttempts: this.state.completedAttempts,
             problemSets: this.state.problemSets,
@@ -1594,6 +1674,9 @@ class MCQApp {
             selectedOption: null,
             selectedConfidence: null,
             timerStart: null,
+            sessionTimeLimit: 0,
+            sessionStartTime: null,
+            _sessionTimerInterval: null,
             analysisReport: null,
             reviewGroups: [],
             currentReviewGroupIndex: 0,

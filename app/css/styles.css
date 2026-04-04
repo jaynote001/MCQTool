@@ -150,6 +150,38 @@ body {
 .drop-icon { font-size: 2rem; margin-bottom: 0.4rem; opacity: 0.5; }
 .drop-label { font-size: 0.95rem; color: var(--text-muted); }
 
+/* --- Session Timer --- */
+.timer-input-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.timer-input {
+    width: 5rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius);
+    font-size: 1rem;
+    text-align: center;
+}
+.timer-unit { color: var(--text-muted); font-size: 0.9rem; }
+.session-timer-bar {
+    text-align: center;
+    padding: 0.5rem;
+    margin-bottom: 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 1.3rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.05em;
+}
+.timer-icon { font-size: 1.1rem; vertical-align: middle; }
+.timer-warning { color: var(--warning); }
+.timer-critical { color: var(--danger); animation: timer-pulse 0.8s ease-in-out infinite; }
+@keyframes timer-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
 /* --- Radio / Option Buttons --- */
 .option-list { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.75rem 0; }
 .option-item {
